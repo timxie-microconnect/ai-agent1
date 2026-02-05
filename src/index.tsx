@@ -7,64 +7,95 @@ const app = new Hono()
 app.use('/api/*', cors())
 app.use(renderer)
 
-// API路由 - 融资方YITO计算
+// API路由 - 融资方YITO计算（正确的封顶机制）
 app.post('/api/calculate-financing', async (c) => {
   const { 
     investmentAmount,      // 融资金额
     dailyGMV,              // 日均GMV
     revenueSharingRate,    // 分成比例
-    annualReturnRate,      // 年化成本（可调）
     paymentFrequency       // 打款频率
   } = await c.req.json()
   
-  // 计算每日分成支出
-  const dailyCost = dailyGMV * (revenueSharingRate / 100)
+  // 根据打款频率自动确定年化成本
+  let annualReturnRate = 0
+  switch(paymentFrequency) {
+    case 'daily':
+      annualReturnRate = 13
+      break
+    case 'weekly':
+      annualReturnRate = 15
+      break
+    case 'biweekly':
+      annualReturnRate = 18
+      break
+    default:
+      annualReturnRate = 15
+  }
   
-  // 计算日化成本
-  const dailyReturnRate = annualReturnRate / 360
+  // 计算每日分成金额
+  const dailyRevenue = dailyGMV * (revenueSharingRate / 100)
   
-  // 使用迭代计算联营天数（每日复利）
+  // YITO封顶机制：单利计算
+  // 封顶金额 = 本金 × (1 + 年化成本率 × 天数 / 360)
+  // 找到达到封顶金额需要的天数
+  
   let days = 0
   let totalPaid = 0
-  let remainingDebt = investmentAmount
+  const maxDays = 365 * 3 // 最多3年
   
-  while (remainingDebt > 0 && days < 365 * 3) { // 最多3年
+  while (days < maxDays) {
     days++
-    const dailyInterest = remainingDebt * (dailyReturnRate / 100)
-    const payment = Math.min(dailyCost, remainingDebt + dailyInterest)
-    totalPaid += payment
-    remainingDebt = remainingDebt * (1 + dailyReturnRate / 100) - payment
+    // 计算当前天数下的封顶金额
+    const cappedAmount = investmentAmount * (1 + annualReturnRate / 100 * days / 360)
+    
+    // 如果累计支付+今天要支付的金额 >= 封顶金额，则达到封顶
+    if (totalPaid + dailyRevenue >= cappedAmount) {
+      // 最后一次只支付到封顶金额
+      totalPaid = cappedAmount
+      break
+    }
+    
+    totalPaid += dailyRevenue
   }
+  
+  // 计算实际成本
+  const actualCost = totalPaid - investmentAmount
+  
+  // 计算实际年化成本率（单利）
+  // 实际年化成本率 = (实际成本 / 本金) × (360 / 天数) × 100%
+  const actualAnnualRate = (actualCost / investmentAmount) * (360 / days) * 100
   
   // 计算打款信息
   let paymentInterval = 1
   let paymentCount = days
-  let paymentAmount = dailyCost
+  let paymentAmount = dailyRevenue
   let paymentFrequencyText = '每日'
   
   switch(paymentFrequency) {
+    case 'daily':
+      paymentInterval = 1
+      paymentCount = days
+      paymentAmount = dailyRevenue
+      paymentFrequencyText = '每日'
+      break
     case 'weekly':
       paymentInterval = 7
       paymentCount = Math.ceil(days / 7)
-      paymentAmount = dailyCost * 7
+      paymentAmount = dailyRevenue * 7
       paymentFrequencyText = '每周'
       break
     case 'biweekly':
       paymentInterval = 14
       paymentCount = Math.ceil(days / 14)
-      paymentAmount = dailyCost * 14
+      paymentAmount = dailyRevenue * 14
       paymentFrequencyText = '每两周'
       break
   }
   
-  // 计算实际融资成本
-  const actualCost = totalPaid - investmentAmount
-  const actualAnnualRate = (actualCost / investmentAmount) * (360 / days) * 100
-  
   return c.json({
     investmentAmount,
     dailyGMV,
-    dailyCost,
+    dailyRevenue,
     revenueSharingRate,
     annualReturnRate,
     daysToComplete: days,
@@ -88,86 +119,84 @@ app.post('/api/calculate-investment', async (c) => {
     paymentFrequency       // 回款频率
   } = await c.req.json()
   
-  // 计算目标回收总额
-  const targetTotalReturn = investmentAmount * (1 + targetReturnRate / 100)
+  // 计算目标回收总额（YITO封顶）
+  // 这里投资方的目标回报率就是他们购买CFO资产时的预期收益
+  // 实际回收金额取决于融资方的还款情况
   
   // 计算每日分成收入
   const dailyRevenue = dailyGMV * (revenueSharingRate / 100)
   
-  // 计算回收天数
-  const daysToBreakEven = Math.ceil(targetTotalReturn / dailyRevenue)
+  // 使用YITO公式计算目标回收金额
+  // 目标总额 = 本金 × (1 + 目标回报率 × 预计天数 / 360)
+  // 预计天数 = 目标总额 / 每日收入
+  
+  // 简化计算：假设每日收入固定，计算达到目标回报率需要多少天
+  // 本金 × (1 + 目标回报率 × 天数 / 360) = 本金 + 每日收入 × 天数
+  // 本金 × 目标回报率 × 天数 / 360 = 每日收入 × 天数 - 本金
+  // 解方程求天数
+  
+  // 使用迭代方法找到准确天数
+  let days = 0
+  let totalReceived = 0
+  const maxDays = 365 * 3
+  
+  while (days < maxDays) {
+    days++
+    totalReceived += dailyRevenue
+    
+    // 计算当前天数下的YITO封顶金额
+    const yitoTarget = investmentAmount * (1 + targetReturnRate / 100 * days / 360)
+    
+    // 如果累计收入达到或超过YITO目标，则停止
+    if (totalReceived >= yitoTarget) {
+      totalReceived = yitoTarget
+      break
+    }
+  }
+  
+  const targetTotalReturn = totalReceived
   
   // 计算打款信息
   let paymentInterval = 1
-  let paymentCount = daysToBreakEven
+  let paymentCount = days
   let paymentAmount = dailyRevenue
   let paymentFrequencyText = '每日'
   
   switch(paymentFrequency) {
+    case 'daily':
+      paymentInterval = 1
+      paymentCount = days
+      paymentAmount = dailyRevenue
+      paymentFrequencyText = '每日'
+      break
     case 'weekly':
       paymentInterval = 7
-      paymentCount = Math.ceil(daysToBreakEven / 7)
+      paymentCount = Math.ceil(days / 7)
       paymentAmount = dailyRevenue * 7
       paymentFrequencyText = '每周'
       break
     case 'biweekly':
       paymentInterval = 14
-      paymentCount = Math.ceil(daysToBreakEven / 14)
+      paymentCount = Math.ceil(days / 14)
       paymentAmount = dailyRevenue * 14
       paymentFrequencyText = '每两周'
       break
   }
   
-  // 计算IRR
-  const calculateIRR = (cashFlows: number[], guess: number = 0.1): number => {
-    const maxIterations = 1000
-    const tolerance = 0.00001
-    let rate = guess
-    
-    for (let i = 0; i < maxIterations; i++) {
-      let npv = 0
-      let dnpv = 0
-      
-      cashFlows.forEach((cf, t) => {
-        npv += cf / Math.pow(1 + rate, t)
-        dnpv -= t * cf / Math.pow(1 + rate, t + 1)
-      })
-      
-      const newRate = rate - npv / dnpv
-      
-      if (Math.abs(newRate - rate) < tolerance) {
-        return rate
-      }
-      
-      rate = newRate
-    }
-    
-    return rate
-  }
-  
-  // 构建现金流数组（用于IRR计算）
-  const cashFlows: number[] = [-investmentAmount]
-  for (let i = 0; i < paymentCount; i++) {
-    cashFlows.push(paymentAmount)
-  }
-  
-  // 计算年化IRR
-  const periodicIRR = calculateIRR(cashFlows)
-  let annualIRR = 0
-  
-  if (paymentFrequency === 'daily') {
-    annualIRR = Math.pow(1 + periodicIRR, 365) - 1
-  } else if (paymentFrequency === 'weekly') {
-    annualIRR = Math.pow(1 + periodicIRR, 52) - 1
-  } else {
-    annualIRR = Math.pow(1 + periodicIRR, 26) - 1
-  }
+  // 计算IRR - 使用简化的年化收益率计算
+  // 年化收益率 = (总收益 / 本金) × (360 / 天数) × 100%
+  const actualReturn = targetTotalReturn - investmentAmount
+  const annualizedReturn = (actualReturn / investmentAmount) * (360 / days) * 100
   
   // 生成现金流时间表（前12期）
   const cashFlowSchedule = []
+  let cumulativeAmount = 0
+  
   for (let i = 0; i < Math.min(12, paymentCount); i++) {
     const period = i + 1
     let dateDesc = ''
+    let periodPayment = paymentAmount
+    
     if (paymentFrequency === 'daily') {
       dateDesc = `第${period}天`
     } else if (paymentFrequency === 'weekly') {
@@ -176,11 +205,19 @@ app.post('/api/calculate-investment', async (c) => {
       dateDesc = `第${period}期（双周）`
     }
     
+    cumulativeAmount += periodPayment
+    
+    // 如果是最后一期，可能需要调整金额
+    if (period === paymentCount && cumulativeAmount > targetTotalReturn) {
+      periodPayment = targetTotalReturn - (cumulativeAmount - periodPayment)
+      cumulativeAmount = targetTotalReturn
+    }
+    
     cashFlowSchedule.push({
       period,
       date: dateDesc,
-      inflow: paymentAmount,
-      cumulative: paymentAmount * period
+      inflow: periodPayment,
+      cumulative: Math.min(cumulativeAmount, targetTotalReturn)
     })
   }
   
@@ -191,13 +228,13 @@ app.post('/api/calculate-investment', async (c) => {
     dailyGMV,
     dailyRevenue,
     revenueSharingRate,
-    daysToBreakEven,
-    monthsToBreakEven: (daysToBreakEven / 30).toFixed(1),
+    daysToBreakEven: days,
+    monthsToBreakEven: (days / 30).toFixed(1),
     paymentFrequency: paymentFrequencyText,
     paymentInterval,
     paymentCount,
     paymentAmount,
-    irr: annualIRR * 100,
+    annualizedReturn,
     cashFlowSchedule
   })
 })
@@ -298,7 +335,7 @@ app.get('/', (c) => {
               </div>
               <div>
                 <h2 class="text-2xl font-bold text-gray-800">融资方计算器</h2>
-                <p class="text-sm text-gray-600">评估您的融资成本</p>
+                <p class="text-sm text-gray-600">评估您的融资成本（YITO封顶）</p>
               </div>
             </div>
             
@@ -345,31 +382,17 @@ app.get('/', (c) => {
               
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                  年化成本 (%)
-                </label>
-                <input 
-                  type="number" 
-                  id="f_annualReturnRate" 
-                  step="0.1"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="例如：13, 15, 18"
-                  value="15"
-                />
-                <p class="text-xs text-gray-500 mt-1">可选：13%, 15%, 18%</p>
-              </div>
-              
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  打款频率
+                  打款频率（自动锚定年化成本）
                 </label>
                 <select 
                   id="f_paymentFrequency"
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 >
-                  <option value="daily">每日</option>
-                  <option value="weekly">每周</option>
-                  <option value="biweekly">每两周</option>
+                  <option value="daily">每日（年化13%）</option>
+                  <option value="weekly">每周（年化15%）</option>
+                  <option value="biweekly">每两周（年化18%）</option>
                 </select>
+                <p class="text-xs text-gray-500 mt-1">年化成本随打款频率自动确定</p>
               </div>
               
               <button 
@@ -382,8 +405,12 @@ app.get('/', (c) => {
             
             <div id="financingResult" class="mt-6 hidden">
               <div class="bg-red-50 rounded-lg p-4 space-y-3">
-                <h3 class="font-semibold text-gray-800 mb-3 text-lg border-b pb-2">融资评估结果</h3>
+                <h3 class="font-semibold text-gray-800 mb-3 text-lg border-b pb-2">融资评估结果（YITO封顶）</h3>
                 <div class="grid grid-cols-2 gap-3 text-sm">
+                  <div class="bg-white p-3 rounded">
+                    <span class="text-gray-600 block mb-1">年化成本</span>
+                    <span class="font-bold text-red-600 text-lg" id="f_annualRate"></span>
+                  </div>
                   <div class="bg-white p-3 rounded">
                     <span class="text-gray-600 block mb-1">每日分成支出</span>
                     <span class="font-bold text-red-600 text-lg" id="f_dailyCost"></span>
@@ -393,23 +420,25 @@ app.get('/', (c) => {
                     <span class="font-bold text-red-600 text-lg" id="f_days"></span>
                   </div>
                   <div class="bg-white p-3 rounded">
-                    <span class="text-gray-600 block mb-1">总支付金额</span>
+                    <span class="text-gray-600 block mb-1">总支付金额（封顶）</span>
                     <span class="font-bold text-red-600 text-lg" id="f_totalPayment"></span>
                   </div>
                   <div class="bg-white p-3 rounded">
                     <span class="text-gray-600 block mb-1">实际融资成本</span>
                     <span class="font-bold text-red-600 text-lg" id="f_actualCost"></span>
                   </div>
-                </div>
-                <div class="bg-gradient-to-r from-red-100 to-orange-100 p-4 rounded-lg mt-3">
-                  <div class="flex justify-between items-center">
-                    <span class="text-gray-700 font-semibold">实际年化成本率</span>
-                    <span class="text-2xl font-bold text-red-700" id="f_actualRate"></span>
+                  <div class="bg-white p-3 rounded">
+                    <span class="text-gray-600 block mb-1">实际年化成本率</span>
+                    <span class="font-bold text-red-600 text-lg" id="f_actualAnnualRate"></span>
                   </div>
                 </div>
                 <div class="bg-white p-3 rounded border-l-4 border-red-500">
                   <div class="text-sm text-gray-600 mb-1">打款方式</div>
                   <div class="font-semibold" id="f_paymentInfo"></div>
+                </div>
+                <div class="bg-yellow-50 p-3 rounded border-l-4 border-yellow-500">
+                  <div class="text-xs text-gray-600">💡 YITO封顶公式</div>
+                  <div class="text-sm font-mono" id="f_yitoFormula"></div>
                 </div>
               </div>
             </div>
@@ -421,10 +450,17 @@ app.get('/', (c) => {
               <div class="bg-blue-100 rounded-full p-3 mr-4">
                 <i class="fas fa-hand-holding-usd text-2xl text-blue-600"></i>
               </div>
-              <div>
+              <div class="flex-1">
                 <h2 class="text-2xl font-bold text-gray-800">投资方计算器</h2>
                 <p class="text-sm text-gray-600">评估CFO资产投资回报</p>
               </div>
+              <button 
+                id="copyFromFinancing"
+                class="bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm hover:bg-blue-200 transition"
+                title="一键套用融资方数据"
+              >
+                <i class="fas fa-copy mr-1"></i>套用
+              </button>
             </div>
             
             <form id="investmentForm" class="space-y-4">
@@ -506,7 +542,7 @@ app.get('/', (c) => {
             
             <div id="investmentResult" class="mt-6 hidden">
               <div class="bg-blue-50 rounded-lg p-4 space-y-3">
-                <h3 class="font-semibold text-gray-800 mb-3 text-lg border-b pb-2">投资评估结果</h3>
+                <h3 class="font-semibold text-gray-800 mb-3 text-lg border-b pb-2">投资评估结果（YITO封顶）</h3>
                 <div class="grid grid-cols-2 gap-3 text-sm">
                   <div class="bg-white p-3 rounded">
                     <span class="text-gray-600 block mb-1">每日分成收入</span>
@@ -521,14 +557,14 @@ app.get('/', (c) => {
                     <span class="font-bold text-blue-600 text-lg" id="i_months"></span>
                   </div>
                   <div class="bg-white p-3 rounded">
-                    <span class="text-gray-600 block mb-1">目标回收总额</span>
+                    <span class="text-gray-600 block mb-1">目标回收总额（封顶）</span>
                     <span class="font-bold text-blue-600 text-lg" id="i_targetTotal"></span>
                   </div>
                 </div>
                 <div class="bg-gradient-to-r from-blue-100 to-green-100 p-4 rounded-lg mt-3">
                   <div class="flex justify-between items-center">
-                    <span class="text-gray-700 font-semibold">年化IRR</span>
-                    <span class="text-2xl font-bold text-green-700" id="i_irr"></span>
+                    <span class="text-gray-700 font-semibold">年化收益率</span>
+                    <span class="text-2xl font-bold text-green-700" id="i_annualizedReturn"></span>
                   </div>
                 </div>
                 <div class="bg-white p-3 rounded border-l-4 border-blue-500">
@@ -566,20 +602,23 @@ app.get('/', (c) => {
           </h3>
           <div class="bg-white rounded-lg p-6">
             <p class="text-gray-700 mb-4">
-              <strong>以首次申请 500,000 元为例（遵法金融限制涉嫌全金额实治务为例）</strong>
+              <strong>以首次申请 500,000 元为例（遵守YITO封顶机制）</strong>
             </p>
             <div class="grid md:grid-cols-2 gap-6">
               <div>
                 <h4 class="font-semibold text-red-700 mb-2">方案：每周 · 收入分成（年化 15%）</h4>
-                <p class="text-sm text-gray-600 mb-2">该方案下，<strong class="text-red-600">每周打款</strong>，根据实际营收使用天数计算本金成本。例如：</p>
+                <p class="text-sm text-gray-600 mb-2">该方案下，<strong class="text-red-600">每周打款</strong>，根据YITO封顶公式计算。例如：</p>
                 <ul class="text-sm text-gray-700 space-y-1 ml-4">
-                  <li>• <strong>第 15 天还款</strong>：累计需要打款 <strong class="text-red-600">503,125.00 元</strong> = 500,000 × (1 + 15% ÷ 360 × 15)</li>
-                  <li>• <strong>第 20 天还款</strong>：累计需要打款 <strong class="text-red-600">504,166.67 元</strong> = 500,000 × (1 + 15% ÷ 360 × 20)</li>
+                  <li>• <strong>第 15 天还款</strong>：封顶金额 <strong class="text-red-600">503,125.00 元</strong> = 500,000 × (1 + 15% × 15 ÷ 360)</li>
+                  <li>• <strong>第 20 天还款</strong>：封顶金额 <strong class="text-red-600">504,166.67 元</strong> = 500,000 × (1 + 15% × 20 ÷ 360)</li>
                 </ul>
+                <p class="text-xs text-gray-500 mt-2">💡 达到封顶金额即停止，不多收一分钱！</p>
               </div>
               <div class="border-l-2 border-gray-200 pl-6">
-                <h4 class="font-semibold text-gray-700 mb-2">💡 贴士</h4>
-                <p class="text-sm text-gray-600">使用上方计算器，输入您的实际数据，即可得到精确的融资成本和回款预测！</p>
+                <h4 class="font-semibold text-gray-700 mb-2">💡 YITO机制说明</h4>
+                <p class="text-sm text-gray-600 mb-2"><strong>封顶公式：</strong></p>
+                <p class="text-sm font-mono bg-gray-100 p-2 rounded">封顶金额 = 本金 × (1 + 年化成本率 × 天数 ÷ 360)</p>
+                <p class="text-xs text-gray-500 mt-2">这是<strong>单利</strong>计算，确保融资成本透明可控！</p>
               </div>
             </div>
           </div>

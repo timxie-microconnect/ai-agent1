@@ -5,7 +5,6 @@ document.getElementById('financingForm')?.addEventListener('submit', async (e) =
   const investmentAmount = parseFloat(document.getElementById('f_investmentAmount').value)
   const dailyGMV = parseFloat(document.getElementById('f_dailyGMV').value)
   const revenueSharingRate = parseFloat(document.getElementById('f_revenueSharingRate').value)
-  const annualReturnRate = parseFloat(document.getElementById('f_annualReturnRate').value)
   const paymentFrequency = document.getElementById('f_paymentFrequency').value
   
   try {
@@ -18,7 +17,6 @@ document.getElementById('financingForm')?.addEventListener('submit', async (e) =
         investmentAmount,
         dailyGMV,
         revenueSharingRate,
-        annualReturnRate,
         paymentFrequency
       })
     })
@@ -27,12 +25,14 @@ document.getElementById('financingForm')?.addEventListener('submit', async (e) =
     
     // 显示结果
     document.getElementById('financingResult').classList.remove('hidden')
-    document.getElementById('f_dailyCost').textContent = `¥${data.dailyCost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    document.getElementById('f_annualRate').textContent = `${data.annualReturnRate}%`
+    document.getElementById('f_dailyCost').textContent = `¥${data.dailyRevenue.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     document.getElementById('f_days').textContent = `${data.daysToComplete}天`
     document.getElementById('f_totalPayment').textContent = `¥${data.totalPayment.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     document.getElementById('f_actualCost').textContent = `¥${data.actualCost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    document.getElementById('f_actualRate').textContent = `${data.actualAnnualRate.toFixed(2)}%`
-    document.getElementById('f_paymentInfo').textContent = `${data.paymentFrequency}打款，共${data.paymentCount}次，每次¥${data.paymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+    document.getElementById('f_actualAnnualRate').textContent = `${data.actualAnnualRate.toFixed(2)}%`
+    document.getElementById('f_paymentInfo').textContent = `${data.paymentFrequency}打款，共${data.paymentCount}次，每次约¥${data.paymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+    document.getElementById('f_yitoFormula').textContent = `${investmentAmount.toLocaleString()} × (1 + ${data.annualReturnRate}% × ${data.daysToComplete} ÷ 360) = ${data.totalPayment.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
     
     // 滚动到结果
     document.getElementById('financingResult').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -75,8 +75,8 @@ document.getElementById('investmentForm')?.addEventListener('submit', async (e) 
     document.getElementById('i_days').textContent = `${data.daysToBreakEven}天`
     document.getElementById('i_months').textContent = `${data.monthsToBreakEven}个月`
     document.getElementById('i_targetTotal').textContent = `¥${data.targetTotalReturn.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    document.getElementById('i_irr').textContent = `${data.irr.toFixed(2)}%`
-    document.getElementById('i_paymentInfo').textContent = `${data.paymentFrequency}回款，共${data.paymentCount}次，每次¥${data.paymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+    document.getElementById('i_annualizedReturn').textContent = `${data.annualizedReturn.toFixed(2)}%`
+    document.getElementById('i_paymentInfo').textContent = `${data.paymentFrequency}回款，共${data.paymentCount}次，每次约¥${data.paymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
     
     // 填充现金流时间表
     const tableBody = document.getElementById('i_cashFlowTable')
@@ -101,6 +101,57 @@ document.getElementById('investmentForm')?.addEventListener('submit', async (e) 
   }
 })
 
+// 一键套用融资方数据到投资方
+document.getElementById('copyFromFinancing')?.addEventListener('click', () => {
+  const fInvestmentAmount = document.getElementById('f_investmentAmount').value
+  const fDailyGMV = document.getElementById('f_dailyGMV').value
+  const fRevenueSharingRate = document.getElementById('f_revenueSharingRate').value
+  const fPaymentFrequency = document.getElementById('f_paymentFrequency').value
+  
+  // 检查是否有数据
+  if (!fInvestmentAmount || !fDailyGMV || !fRevenueSharingRate) {
+    alert('请先在融资方计算器中输入数据')
+    return
+  }
+  
+  // 套用到投资方
+  document.getElementById('i_investmentAmount').value = fInvestmentAmount
+  document.getElementById('i_dailyGMV').value = fDailyGMV
+  document.getElementById('i_revenueSharingRate').value = fRevenueSharingRate
+  document.getElementById('i_paymentFrequency').value = fPaymentFrequency
+  
+  // 根据打款频率自动设置目标回报率
+  let targetReturnRate = 15
+  switch(fPaymentFrequency) {
+    case 'daily':
+      targetReturnRate = 13
+      break
+    case 'weekly':
+      targetReturnRate = 15
+      break
+    case 'biweekly':
+      targetReturnRate = 18
+      break
+  }
+  document.getElementById('i_targetReturnRate').value = targetReturnRate
+  
+  // 显示提示
+  const button = document.getElementById('copyFromFinancing')
+  const originalText = button.innerHTML
+  button.innerHTML = '<i class="fas fa-check mr-1"></i>已套用'
+  button.classList.add('bg-green-100', 'text-green-700')
+  button.classList.remove('bg-blue-100', 'text-blue-700')
+  
+  setTimeout(() => {
+    button.innerHTML = originalText
+    button.classList.remove('bg-green-100', 'text-green-700')
+    button.classList.add('bg-blue-100', 'text-blue-700')
+  }, 2000)
+  
+  // 滚动到投资方表单
+  document.getElementById('investmentForm').scrollIntoView({ behavior: 'smooth', block: 'center' })
+})
+
 // 页面加载时的动画效果
 document.addEventListener('DOMContentLoaded', () => {
   // 平滑滚动
@@ -113,22 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     })
   })
-  
-  // 数字动画效果
-  const animateNumber = (element, target, duration = 1000) => {
-    const start = 0
-    const increment = target / (duration / 16)
-    let current = start
-    
-    const timer = setInterval(() => {
-      current += increment
-      if (current >= target) {
-        current = target
-        clearInterval(timer)
-      }
-      element.textContent = Math.floor(current).toLocaleString('zh-CN')
-    }, 16)
-  }
   
   // 观察器用于触发动画
   const observer = new IntersectionObserver((entries) => {
@@ -164,8 +199,8 @@ const addTooltip = (element, text) => {
 document.addEventListener('DOMContentLoaded', () => {
   const tooltips = {
     'f_revenueSharingRate': '从每日GMV中分成的比例，用于偿还融资',
-    'f_annualReturnRate': '融资的年化成本率，可选13%、15%或18%',
-    'i_targetReturnRate': '投资的目标年化回报率',
+    'f_paymentFrequency': '打款频率决定年化成本：每日13%，每周15%，每两周18%',
+    'i_targetReturnRate': '投资的目标年化回报率（YITO封顶）',
     'i_dailyGMV': '融资企业的日均销售额（GMV）'
   }
   
