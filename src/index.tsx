@@ -7,7 +7,7 @@ const app = new Hono()
 app.use('/api/*', cors())
 app.use(renderer)
 
-// API路由 - 融资方YITO计算
+// API路由 - 单笔联营融资方计算
 app.post('/api/calculate-financing', async (c) => {
   const { 
     investmentAmount,
@@ -34,7 +34,6 @@ app.post('/api/calculate-financing', async (c) => {
   
   const dailyRevenue = dailyGMV * (revenueSharingRate / 100)
   
-  // YITO封顶机制：单利计算
   let days = 0
   let totalPaid = 0
   const maxDays = 365 * 3
@@ -95,7 +94,7 @@ app.post('/api/calculate-financing', async (c) => {
   })
 })
 
-// API路由 - 投资方CFO资产投资计算（使用复利IRR）
+// API路由 - 单笔联营投资方计算
 app.post('/api/calculate-investment', async (c) => {
   const { 
     investmentAmount,
@@ -107,7 +106,6 @@ app.post('/api/calculate-investment', async (c) => {
   
   const dailyRevenue = dailyGMV * (revenueSharingRate / 100)
   
-  // 使用YITO公式计算目标回收金额
   let days = 0
   let totalReceived = 0
   const maxDays = 365 * 3
@@ -126,7 +124,6 @@ app.post('/api/calculate-investment', async (c) => {
   
   const targetTotalReturn = totalReceived
   
-  // 计算打款信息
   let paymentInterval = 1
   let paymentCount = days
   let paymentAmount = dailyRevenue
@@ -153,63 +150,13 @@ app.post('/api/calculate-investment', async (c) => {
       break
   }
   
-  // 计算IRR - 使用牛顿迭代法（复利）
-  const calculateIRR = (cashFlows: number[], guess: number = 0.1): number => {
-    const maxIterations = 1000
-    const tolerance = 0.00001
-    let rate = guess
-    
-    for (let i = 0; i < maxIterations; i++) {
-      let npv = 0
-      let dnpv = 0
-      
-      cashFlows.forEach((cf, t) => {
-        npv += cf / Math.pow(1 + rate, t)
-        dnpv -= t * cf / Math.pow(1 + rate, t + 1)
-      })
-      
-      const newRate = rate - npv / dnpv
-      
-      if (Math.abs(newRate - rate) < tolerance) {
-        return rate
-      }
-      
-      rate = newRate
-    }
-    
-    return rate
-  }
+  // 计算投资周期总收益率（不年化）
+  const totalReturn = ((targetTotalReturn - investmentAmount) / investmentAmount) * 100
   
-  // 构建现金流数组
-  const cashFlows: number[] = [-investmentAmount]
-  for (let i = 0; i < paymentCount; i++) {
-    cashFlows.push(paymentAmount)
-  }
+  // 计算实际天数下的总收益金额
+  const totalProfit = targetTotalReturn - investmentAmount
   
-  // 调整最后一期到封顶金额
-  const totalScheduled = paymentAmount * paymentCount
-  if (totalScheduled > targetTotalReturn) {
-    cashFlows[cashFlows.length - 1] = paymentAmount - (totalScheduled - targetTotalReturn)
-  }
-  
-  // 计算周期IRR
-  const periodicIRR = calculateIRR(cashFlows)
-  
-  // 转换为年化IRR（复利）
-  let annualIRR = 0
-  if (paymentFrequency === 'daily') {
-    annualIRR = Math.pow(1 + periodicIRR, 365) - 1
-  } else if (paymentFrequency === 'weekly') {
-    annualIRR = Math.pow(1 + periodicIRR, 52) - 1
-  } else {
-    annualIRR = Math.pow(1 + periodicIRR, 26) - 1
-  }
-  
-  // 计算简单年化收益率（单利，用于对比）
-  const actualReturn = targetTotalReturn - investmentAmount
-  const simpleAnnualizedReturn = (actualReturn / investmentAmount) * (360 / days) * 100
-  
-  // 生成现金流时间表
+  // 生成现金流时间表（前12期）
   const cashFlowSchedule = []
   let cumulativeAmount = 0
   
@@ -253,8 +200,8 @@ app.post('/api/calculate-investment', async (c) => {
     paymentInterval,
     paymentCount,
     paymentAmount,
-    annualIRR: annualIRR * 100,
-    simpleAnnualReturn: simpleAnnualizedReturn,
+    totalReturn,
+    totalProfit,
     cashFlowSchedule
   })
 })
@@ -264,8 +211,13 @@ app.get('/', (c) => {
   return c.render(
     <div class="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Hero Section */}
-      <div class="bg-gradient-to-r from-red-600 to-red-700 text-white py-12">
-        <div class="max-w-7xl mx-auto px-4">
+      <div class="bg-gradient-to-r from-red-600 to-red-700 text-white py-12 relative overflow-hidden">
+        <div class="absolute top-0 right-0 opacity-10">
+          <svg width="400" height="400" viewBox="0 0 400 400">
+            <circle cx="200" cy="200" r="150" fill="white" />
+          </svg>
+        </div>
+        <div class="max-w-7xl mx-auto px-4 relative z-10">
           <div class="text-center">
             <h1 class="text-5xl font-bold mb-3">滴灌通·投流通</h1>
             <p class="text-2xl mb-2">为抖音电商定制的投流资金解决方案</p>
@@ -309,6 +261,7 @@ app.get('/', (c) => {
                     <th class="py-3 px-4 text-center">年化成本（锚定）</th>
                     <th class="py-3 px-4 text-center">日度成本</th>
                     <th class="py-3 px-4 text-center">核心规则</th>
+                    <th class="py-3 px-4 text-center">早鸟客户融资有效期</th>
                   </tr>
                 </thead>
                 <tbody class="text-white/90">
@@ -317,18 +270,21 @@ app.get('/', (c) => {
                     <td class="py-3 px-4 text-center">13%</td>
                     <td class="py-3 px-4 text-center">约0.036%</td>
                     <td class="py-3 px-4 text-center">每天报数、按频率分成打款</td>
+                    <td class="py-3 px-4 text-center">两个月内</td>
                   </tr>
                   <tr class="border-b border-white/20">
                     <td class="py-3 px-4 font-semibold">每周</td>
                     <td class="py-3 px-4 text-center">15%</td>
                     <td class="py-3 px-4 text-center">约0.042%</td>
-                    <td class="py-3 px-4 text-center">当累计分成达到YITO封顶时停止</td>
+                    <td class="py-3 px-4 text-center">当累计分成达到约定条件时</td>
+                    <td class="py-3 px-4 text-center">可循环申请</td>
                   </tr>
                   <tr>
                     <td class="py-3 px-4 font-semibold">每两周</td>
                     <td class="py-3 px-4 text-center">18%</td>
                     <td class="py-3 px-4 text-center">0.050%</td>
                     <td class="py-3 px-4 text-center">收入分成立即停止</td>
+                    <td class="py-3 px-4 text-center">还达即停</td>
                   </tr>
                 </tbody>
               </table>
@@ -358,7 +314,7 @@ app.get('/', (c) => {
                 <input 
                   type="number" 
                   id="f_investmentAmount" 
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="例如：500000"
                   value="500000"
                 />
@@ -371,7 +327,7 @@ app.get('/', (c) => {
                 <input 
                   type="number" 
                   id="f_dailyGMV" 
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="例如：300000"
                   value="300000"
                 />
@@ -385,7 +341,7 @@ app.get('/', (c) => {
                   type="number" 
                   id="f_revenueSharingRate" 
                   step="0.1"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="例如：15"
                   value="15"
                 />
@@ -397,7 +353,7 @@ app.get('/', (c) => {
                 </label>
                 <select 
                   id="f_paymentFrequency"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 >
                   <option value="daily">每日（年化13%）</option>
                   <option value="weekly">每周（年化15%）</option>
@@ -433,7 +389,7 @@ app.get('/', (c) => {
                     <span class="text-gray-600 block mb-1">总支付金额（封顶）</span>
                     <span class="font-bold text-red-600 text-lg" id="f_totalPayment"></span>
                   </div>
-                  <div class="bg-white p-3 rounded col-span-2">
+                  <div class="bg-white p-3 rounded">
                     <span class="text-gray-600 block mb-1">实际融资成本</span>
                     <span class="font-bold text-red-600 text-lg" id="f_actualCost"></span>
                   </div>
@@ -477,7 +433,7 @@ app.get('/', (c) => {
                 <input 
                   type="number" 
                   id="i_investmentAmount" 
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="例如：500000"
                   value="500000"
                 />
@@ -490,7 +446,7 @@ app.get('/', (c) => {
                 <input 
                   type="number" 
                   id="i_dailyGMV" 
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="例如：300000"
                   value="300000"
                 />
@@ -504,7 +460,7 @@ app.get('/', (c) => {
                   type="number" 
                   id="i_revenueSharingRate" 
                   step="0.1"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="例如：15"
                   value="15"
                 />
@@ -518,7 +474,7 @@ app.get('/', (c) => {
                   type="number" 
                   id="i_targetReturnRate" 
                   step="0.1"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="例如：18"
                   value="18"
                 />
@@ -530,7 +486,7 @@ app.get('/', (c) => {
                 </label>
                 <select 
                   id="i_paymentFrequency"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="daily">每日</option>
                   <option value="weekly">每周</option>
@@ -563,21 +519,20 @@ app.get('/', (c) => {
                     <span class="font-bold text-blue-600 text-lg" id="i_targetTotal"></span>
                   </div>
                 </div>
-                <div class="bg-gradient-to-r from-blue-100 to-green-100 p-4 rounded-lg">
-                  <div class="space-y-2">
+                <div class="bg-gradient-to-r from-blue-100 to-green-100 p-4 rounded-lg mt-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-700 font-semibold">投资周期总收益率</span>
+                    <span class="text-2xl font-bold text-green-700" id="i_totalReturn"></span>
+                  </div>
+                  <div class="text-xs text-gray-600 mt-1">
+                    （<span id="i_returnDays"></span>天投资周期的总回报）
+                  </div>
+                  <div class="mt-2 pt-2 border-t border-gray-300">
                     <div class="flex justify-between items-center">
-                      <span class="text-gray-700 text-sm">年化IRR（复利）</span>
-                      <span class="text-xl font-bold text-green-700" id="i_annualIRR"></span>
-                    </div>
-                    <div class="flex justify-between items-center text-xs">
-                      <span class="text-gray-600">简单年化收益率</span>
-                      <span class="font-semibold text-gray-700" id="i_simpleReturn"></span>
+                      <span class="text-gray-600 text-sm">总收益金额</span>
+                      <span class="text-lg font-bold text-green-600" id="i_totalProfit"></span>
                     </div>
                   </div>
-                </div>
-                <div class="bg-yellow-50 p-3 rounded text-xs text-gray-600">
-                  <i class="fas fa-info-circle mr-1"></i>
-                  IRR适用于短期快速回款场景，数值较高属正常现象
                 </div>
                 <div class="bg-white p-3 rounded border-l-4 border-blue-500">
                   <div class="text-sm text-gray-600 mb-1">回款方式</div>
@@ -585,6 +540,7 @@ app.get('/', (c) => {
                 </div>
               </div>
               
+              {/* Cash Flow Schedule */}
               <div class="mt-4 bg-white rounded-lg border p-4">
                 <h4 class="font-semibold text-gray-800 mb-3">预计现金流时间表（前12期）</h4>
                 <div class="overflow-x-auto">
@@ -605,32 +561,36 @@ app.get('/', (c) => {
           </div>
         </div>
 
-        {/* Agreement Form Collection */}
-        <div class="bg-white rounded-lg shadow-lg p-8 mb-8 border-t-4 border-green-600">
+        {/* Agreement Form */}
+        <div class="bg-white rounded-lg shadow-lg p-8 border-t-4 border-purple-600">
           <div class="flex items-center mb-6">
-            <div class="bg-green-100 rounded-full p-3 mr-4">
-              <i class="fas fa-file-contract text-2xl text-green-600"></i>
+            <div class="bg-purple-100 rounded-full p-3 mr-4">
+              <i class="fas fa-file-contract text-2xl text-purple-600"></i>
             </div>
             <div>
-              <h2 class="text-2xl font-bold text-gray-800">联营协议信息收集</h2>
-              <p class="text-sm text-gray-600">填写以下信息用于生成联营协议</p>
+              <h2 class="text-2xl font-bold text-gray-800">联营协议预填项收集</h2>
+              <p class="text-sm text-gray-600">填写以下信息以生成协议草案</p>
             </div>
           </div>
-
+          
           <form id="agreementForm" class="space-y-6">
             {/* 联营方信息 */}
-            <div class="border-l-4 border-green-500 pl-4">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">联营方（品牌商家）信息</h3>
+            <div class="bg-red-50 rounded-lg p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-building text-red-600 mr-2"></i>
+                联营方信息（品牌商家）
+              </h3>
               <div class="grid md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
-                    工商主体名称 *
+                    企业名称 *
                   </label>
                   <input 
                     type="text" 
-                    id="ag_company_name"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                    placeholder="例如：深圳市某某科技有限公司"
+                    id="partner_company_name"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="例如：某某贸易有限公司"
+                    required
                   />
                 </div>
                 <div>
@@ -639,20 +599,10 @@ app.get('/', (c) => {
                   </label>
                   <input 
                     type="text" 
-                    id="ag_credit_code"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    id="partner_credit_code"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     placeholder="18位统一社会信用代码"
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    法定代表人 *
-                  </label>
-                  <input 
-                    type="text" 
-                    id="ag_legal_person"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                    placeholder="法定代表人姓名"
+                    required
                   />
                 </div>
                 <div>
@@ -661,219 +611,276 @@ app.get('/', (c) => {
                   </label>
                   <input 
                     type="text" 
-                    id="ag_address"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                    placeholder="公司注册地址"
+                    id="partner_address"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="完整的注册地址"
+                    required
                   />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
-                    经营品牌 *
+                    法定代表人 *
                   </label>
                   <input 
                     type="text" 
-                    id="ag_brand"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                    placeholder="例如：十月稻田"
+                    id="partner_legal_rep"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="法定代表人姓名"
+                    required
                   />
                 </div>
-                <div>
+                <div class="md:col-span-2">
                   <label class="block text-sm font-medium text-gray-700 mb-2">
-                    抖音店铺名称 *
+                    经营品牌/商品类别 *
                   </label>
                   <input 
                     type="text" 
-                    id="ag_shop_name"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                    placeholder="抖音平台店铺名称"
+                    id="partner_business"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="例如：于抖音平台销售XX品牌相关商品"
+                    required
                   />
                 </div>
               </div>
             </div>
 
             {/* 合作方信息 */}
-            <div class="border-l-4 border-orange-500 pl-4">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">合作方（投流代理商）信息</h3>
+            <div class="bg-orange-50 rounded-lg p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-handshake text-orange-600 mr-2"></i>
+                合作方信息（投流代理商）
+              </h3>
               <div class="grid md:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
-                    工商主体名称 *
+                    企业名称 *
                   </label>
                   <input 
                     type="text" 
-                    id="ag_partner_name"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    placeholder="例如：良辰美"
+                    id="agency_company_name"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="例如：良辰美（厦门）网络科技有限公司"
+                    value="良辰美（厦门）网络科技有限公司"
                   />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
-                    统一社会信用代码 *
+                    统一社会信用代码
                   </label>
                   <input 
                     type="text" 
-                    id="ag_partner_credit_code"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                    id="agency_credit_code"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     placeholder="18位统一社会信用代码"
                   />
                 </div>
               </div>
             </div>
 
-            {/* 联营条款 */}
-            <div class="border-l-4 border-blue-500 pl-4">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">联营合作条款</h3>
-              <div class="grid md:grid-cols-2 gap-4">
+            {/* 联营资金安排 */}
+            <div class="bg-blue-50 rounded-lg p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-money-bill-wave text-blue-600 mr-2"></i>
+                联营资金安排
+              </h3>
+              <div class="grid md:grid-cols-3 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
-                    联营资金金额 (元) *
+                    联营资金总额 (元) *
                   </label>
                   <input 
                     type="number" 
-                    id="ag_investment_amount"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    id="total_investment"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     placeholder="例如：500000"
+                    required
                   />
                 </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    分几次提供 *
+                  </label>
+                  <select 
+                    id="investment_times"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="1">1次（一次性提供）</option>
+                    <option value="2">2次</option>
+                    <option value="3">3次</option>
+                    <option value="4">4次</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    单次投资金额 (元) *
+                  </label>
+                  <input 
+                    type="number" 
+                    id="single_investment"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="例如：500000"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 分成方案 */}
+            <div class="bg-green-50 rounded-lg p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-percentage text-green-600 mr-2"></i>
+                分成方案
+              </h3>
+              <div class="grid md:grid-cols-3 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
                     分成比例 (%) *
                   </label>
                   <input 
                     type="number" 
-                    id="ag_revenue_sharing_rate"
+                    id="revenue_sharing_rate"
                     step="0.1"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     placeholder="例如：15"
+                    required
                   />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    年化成本率 (%) *
+                  </label>
+                  <select 
+                    id="annual_cost_rate"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="13">13%（每日打款）</option>
+                    <option value="15">15%（每周打款）</option>
+                    <option value="18">18%（每两周打款）</option>
+                  </select>
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
                     分成付款频率 *
                   </label>
                   <select 
-                    id="ag_payment_frequency"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    id="payment_frequency"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="">请选择</option>
                     <option value="daily">每自然日</option>
-                    <option value="weekly">每一个自然周</option>
-                    <option value="biweekly">每两个自然周</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    年化成本率 (%)
-                  </label>
-                  <input 
-                    type="text" 
-                    id="ag_annual_return_rate"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                    placeholder="根据分成频率自动确定"
-                    readonly
-                  />
-                </div>
-                <div class="md:col-span-2">
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    数据传输方式 *
-                  </label>
-                  <select 
-                    id="ag_data_transfer"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">请选择</option>
-                    <option value="manual">手动传数</option>
-                    <option value="auto">系统自动对接</option>
+                    <option value="weekly">一个自然周</option>
+                    <option value="biweekly">两个自然周</option>
                   </select>
                 </div>
               </div>
             </div>
 
             {/* 银行账户信息 */}
-            <div class="border-l-4 border-purple-500 pl-4">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">银行账户信息</h3>
-              <div class="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    合作方收款账户户名 *
-                  </label>
-                  <input 
-                    type="text" 
-                    id="ag_bank_account_name"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    placeholder="收款账户户名"
-                  />
+            <div class="bg-yellow-50 rounded-lg p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-university text-yellow-600 mr-2"></i>
+                银行账户信息
+              </h3>
+              <div class="space-y-4">
+                <div class="border-b pb-4">
+                  <h4 class="font-semibold text-gray-700 mb-3">合作方收款账户</h4>
+                  <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">
+                        户名
+                      </label>
+                      <input 
+                        type="text" 
+                        id="agency_account_name"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">
+                        账号
+                      </label>
+                      <input 
+                        type="text" 
+                        id="agency_account_number"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">
+                        开户行
+                      </label>
+                      <input 
+                        type="text" 
+                        id="agency_bank"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">
+                        开户支行
+                      </label>
+                      <input 
+                        type="text" 
+                        id="agency_bank_branch"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
                 </div>
+                
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    合作方收款账号 *
-                  </label>
-                  <input 
-                    type="text" 
-                    id="ag_bank_account_number"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    placeholder="银行账号"
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    开户行 *
-                  </label>
-                  <input 
-                    type="text" 
-                    id="ag_bank_name"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    placeholder="例如：中国工商银行"
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-2">
-                    开户支行 *
-                  </label>
-                  <input 
-                    type="text" 
-                    id="ag_bank_branch"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    placeholder="具体支行名称"
-                  />
+                  <h4 class="font-semibold text-gray-700 mb-3">联营方开票信息</h4>
+                  <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">
+                        企业名称
+                      </label>
+                      <input 
+                        type="text" 
+                        id="partner_invoice_name"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">
+                        纳税人识别号
+                      </label>
+                      <input 
+                        type="text" 
+                        id="partner_tax_id"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="flex gap-4">
-              <button 
-                type="submit"
-                class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition shadow-lg"
-              >
-                <i class="fas fa-check mr-2"></i>
-                提交协议信息
-              </button>
-              <button 
-                type="button"
-                id="previewAgreement"
-                class="flex-1 bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition shadow-lg"
-              >
-                <i class="fas fa-eye mr-2"></i>
-                预览协议内容
-              </button>
-            </div>
+            <button 
+              type="submit"
+              class="w-full bg-purple-600 text-white py-4 rounded-lg font-semibold hover:bg-purple-700 transition shadow-lg text-lg"
+            >
+              <i class="fas fa-file-download mr-2"></i>
+              生成协议草案
+            </button>
           </form>
-
+          
           <div id="agreementResult" class="mt-6 hidden">
-            <div class="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
-              <h4 class="font-semibold text-green-800 mb-2">
-                <i class="fas fa-check-circle mr-2"></i>
-                信息收集完成
-              </h4>
-              <p class="text-sm text-gray-700">
-                您的协议信息已记录，我们将尽快与您联系完成协议签署流程。
-              </p>
+            <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+              <div class="flex items-center">
+                <i class="fas fa-check-circle text-green-600 text-2xl mr-3"></i>
+                <div>
+                  <h4 class="font-semibold text-gray-800">协议信息已收集</h4>
+                  <p class="text-sm text-gray-600 mt-1">
+                    所有必要信息已填写完成，可以联系滴灌通工作人员生成正式协议文档。
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Case Study Example */}
-        <div class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg shadow-lg p-8 border-l-4 border-yellow-500">
+        {/* Case Study */}
+        <div class="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg shadow-lg p-8 border-l-4 border-yellow-500 mt-8">
           <h3 class="text-2xl font-bold text-gray-800 mb-4">
             <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
             举例试算
@@ -887,8 +894,8 @@ app.get('/', (c) => {
                 <h4 class="font-semibold text-red-700 mb-2">方案：每周 · 收入分成（年化 15%）</h4>
                 <p class="text-sm text-gray-600 mb-2">该方案下，<strong class="text-red-600">每周打款</strong>，根据YITO封顶公式计算。例如：</p>
                 <ul class="text-sm text-gray-700 space-y-1 ml-4">
-                  <li>• <strong>第 15 天还款</strong>：封顶 <strong class="text-red-600">503,125元</strong> = 500,000 × (1 + 15% × 15 ÷ 360)</li>
-                  <li>• <strong>第 20 天还款</strong>：封顶 <strong class="text-red-600">504,167元</strong> = 500,000 × (1 + 15% × 20 ÷ 360)</li>
+                  <li>• <strong>第 15 天还款</strong>：封顶金额 <strong class="text-red-600">503,125.00 元</strong> = 500,000 × (1 + 15% × 15 ÷ 360)</li>
+                  <li>• <strong>第 20 天还款</strong>：封顶金额 <strong class="text-red-600">504,166.67 元</strong> = 500,000 × (1 + 15% × 20 ÷ 360)</li>
                 </ul>
                 <p class="text-xs text-gray-500 mt-2">💡 达到封顶金额即停止，不多收一分钱！</p>
               </div>
@@ -925,11 +932,12 @@ app.get('/', (c) => {
             </div>
           </div>
           <div class="border-t border-gray-700 pt-6 text-center">
-            <p class="text-gray-400 text-sm">© 2025 滴灌通集团</p>
+            <p class="text-gray-400 text-sm">© 2025 滴灌通集团 | 以金融科技连接全球资本与小微企业</p>
           </div>
         </div>
       </div>
 
+      {/* JavaScript */}
       <script src="/static/app.js"></script>
     </div>
   )

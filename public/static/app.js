@@ -66,8 +66,9 @@ document.getElementById('investmentForm')?.addEventListener('submit', async (e) 
     document.getElementById('i_dailyRevenue').textContent = `¥${data.dailyRevenue.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
     document.getElementById('i_days').textContent = `${data.daysToBreakEven}天`
     document.getElementById('i_targetTotal').textContent = `¥${data.targetTotalReturn.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
-    document.getElementById('i_annualIRR').textContent = `${data.annualIRR.toFixed(2)}%`
-    document.getElementById('i_simpleReturn').textContent = `${data.simpleAnnualReturn.toFixed(2)}%`
+    document.getElementById('i_totalReturn').textContent = `${data.totalReturn.toFixed(2)}%`
+    document.getElementById('i_returnDays').textContent = data.daysToBreakEven
+    document.getElementById('i_totalProfit').textContent = `¥${data.totalProfit.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
     document.getElementById('i_paymentInfo').textContent = `${data.paymentFrequency}回款，共${data.paymentCount}次，每次约¥${data.paymentAmount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
     
     // 填充现金流时间表
