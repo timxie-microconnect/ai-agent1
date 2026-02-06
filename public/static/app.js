@@ -1,3 +1,115 @@
+// 融资方准入评估
+document.getElementById('qualificationForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault()
+  
+  const category = document.getElementById('q_category').value
+  const avgROI = parseFloat(document.getElementById('q_avgROI').value)
+  const avgReturnRate = parseFloat(document.getElementById('q_avgReturnRate').value)
+  const avgNetProfit = parseFloat(document.getElementById('q_avgNetProfit').value)
+  const shopRating = parseFloat(document.getElementById('q_shopRating').value)
+  const operatingMonths = parseInt(document.getElementById('q_operatingMonths').value)
+  
+  try {
+    const response = await fetch('/api/check-qualification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category,
+        avgROI,
+        avgReturnRate,
+        avgNetProfit,
+        shopRating,
+        operatingMonths
+      })
+    })
+    
+    const data = await response.json()
+    
+    const resultDiv = document.getElementById('qualificationResult')
+    const contentDiv = document.getElementById('qualificationContent')
+    
+    if (data.qualified) {
+      contentDiv.innerHTML = `
+        <div class="bg-green-50 border-l-4 border-green-500 p-6 rounded">
+          <div class="flex items-center mb-4">
+            <i class="fas fa-check-circle text-green-600 text-3xl mr-3"></i>
+            <div>
+              <h4 class="font-bold text-lg text-green-800">${data.message}</h4>
+              <p class="text-sm text-green-700 mt-1">您的【${data.category}】类目店铺已通过所有准入指标审核！</p>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg p-4 mt-4">
+            <h5 class="font-semibold text-gray-800 mb-3">✅ 准入指标达标情况：</h5>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-600">近三个月日均投流ROI：</span>
+                <span class="font-semibold text-green-600">${avgROI.toFixed(2)} ✓</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">近三个月日均退货率：</span>
+                <span class="font-semibold text-green-600">${avgReturnRate.toFixed(1)}% ✓</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">近三个月商品平均净利：</span>
+                <span class="font-semibold text-green-600">${avgNetProfit.toFixed(1)}% ✓</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">抖音店铺当前评分：</span>
+                <span class="font-semibold text-green-600">${shopRating.toFixed(1)}分 ✓</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">抖音店铺运营时间：</span>
+                <span class="font-semibold text-green-600">${operatingMonths}个月 ✓</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 bg-blue-50 border border-blue-200 rounded p-4">
+            <p class="text-sm text-blue-800">
+              <i class="fas fa-info-circle mr-2"></i>
+              下一步：请继续填写下方的<strong>融资方计算器</strong>，测算您的融资成本！
+            </p>
+          </div>
+        </div>
+      `
+    } else {
+      contentDiv.innerHTML = `
+        <div class="bg-red-50 border-l-4 border-red-500 p-6 rounded">
+          <div class="flex items-center mb-4">
+            <i class="fas fa-times-circle text-red-600 text-3xl mr-3"></i>
+            <div>
+              <h4 class="font-bold text-lg text-red-800">${data.message}</h4>
+              <p class="text-sm text-red-700 mt-1">以下指标未达到【${data.category}】类目的准入标准：</p>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg p-4 mt-4">
+            <h5 class="font-semibold text-gray-800 mb-3">❌ 未达标项目：</h5>
+            <div class="space-y-2 text-sm">
+              ${data.failedChecks.map(check => `
+                <div class="flex items-start">
+                  <i class="fas fa-exclamation-triangle text-red-500 mt-1 mr-2"></i>
+                  <span class="text-gray-700">${check.message}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded p-4">
+            <p class="text-sm text-yellow-800">
+              <i class="fas fa-lightbulb mr-2"></i>
+              建议：提升店铺运营指标后再次申请，或联系客服咨询特殊准入通道。
+            </p>
+          </div>
+        </div>
+      `
+    }
+    
+    resultDiv.classList.remove('hidden')
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  } catch (error) {
+    console.error('评估错误:', error)
+    alert('评估失败，请检查网络连接后重试')
+  }
+})
+
 // 融资方计算器
 document.getElementById('financingForm')?.addEventListener('submit', async (e) => {
   e.preventDefault()
@@ -154,31 +266,31 @@ document.getElementById('agreementForm')?.addEventListener('submit', async (e) =
   
   // 收集所有表单数据
   const formData = {
-    company_name: document.getElementById('ag_company_name').value,
-    credit_code: document.getElementById('ag_credit_code').value,
-    legal_person: document.getElementById('ag_legal_person').value,
-    address: document.getElementById('ag_address').value,
-    brand: document.getElementById('ag_brand').value,
-    shop_name: document.getElementById('ag_shop_name').value,
-    partner_name: document.getElementById('ag_partner_name').value,
-    partner_credit_code: document.getElementById('ag_partner_credit_code').value,
-    investment_amount: document.getElementById('ag_investment_amount').value,
-    revenue_sharing_rate: document.getElementById('ag_revenue_sharing_rate').value,
-    payment_frequency: document.getElementById('ag_payment_frequency').value,
-    annual_return_rate: document.getElementById('ag_annual_return_rate').value,
-    data_transfer: document.getElementById('ag_data_transfer').value,
-    bank_account_name: document.getElementById('ag_bank_account_name').value,
-    bank_account_number: document.getElementById('ag_bank_account_number').value,
-    bank_name: document.getElementById('ag_bank_name').value,
-    bank_branch: document.getElementById('ag_bank_branch').value
+    partner_company_name: document.getElementById('partner_company_name').value,
+    partner_credit_code: document.getElementById('partner_credit_code').value,
+    partner_legal_rep: document.getElementById('partner_legal_rep').value,
+    partner_address: document.getElementById('partner_address').value,
+    partner_business: document.getElementById('partner_business').value,
+    agency_company_name: document.getElementById('agency_company_name').value,
+    agency_credit_code: document.getElementById('agency_credit_code').value,
+    total_investment: document.getElementById('total_investment').value,
+    investment_times: document.getElementById('investment_times').value,
+    single_investment: document.getElementById('single_investment').value,
+    revenue_sharing_rate: document.getElementById('revenue_sharing_rate').value,
+    annual_cost_rate: document.getElementById('annual_cost_rate').value,
+    payment_frequency: document.getElementById('payment_frequency').value,
+    agency_account_name: document.getElementById('agency_account_name').value,
+    agency_account_number: document.getElementById('agency_account_number').value,
+    agency_bank: document.getElementById('agency_bank').value,
+    agency_bank_branch: document.getElementById('agency_bank_branch').value,
+    partner_invoice_name: document.getElementById('partner_invoice_name').value,
+    partner_tax_id: document.getElementById('partner_tax_id').value
   }
   
   // 验证必填字段
   const requiredFields = [
-    'company_name', 'credit_code', 'legal_person', 'address', 'brand', 'shop_name',
-    'partner_name', 'partner_credit_code', 'investment_amount', 'revenue_sharing_rate',
-    'payment_frequency', 'data_transfer', 'bank_account_name', 'bank_account_number',
-    'bank_name', 'bank_branch'
+    'partner_company_name', 'partner_credit_code', 'partner_legal_rep', 'partner_address', 
+    'partner_business', 'total_investment', 'single_investment', 'revenue_sharing_rate'
   ]
   
   for (const field of requiredFields) {
@@ -188,51 +300,122 @@ document.getElementById('agreementForm')?.addEventListener('submit', async (e) =
     }
   }
   
-  // 显示成功提示
-  document.getElementById('agreementResult').classList.remove('hidden')
-  document.getElementById('agreementResult').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  // 生成协议文本
+  const freqText = {
+    'daily': '每自然日',
+    'weekly': '每一个自然周',
+    'biweekly': '每两个自然周'
+  }[formData.payment_frequency] || formData.payment_frequency
+  
+  const agreementText = `
+投流通投资联营协议草案
+
+═══════════════════════════════════════════════════════
+
+一、联营方信息（品牌商家）
+────────────────────────────────────────────────────
+  企业名称：${formData.partner_company_name}
+  统一社会信用代码：${formData.partner_credit_code}
+  法定代表人：${formData.partner_legal_rep}
+  注册地址：${formData.partner_address}
+  经营品牌/商品类别：${formData.partner_business}
+
+二、合作方信息（投流代理商）
+────────────────────────────────────────────────────
+  企业名称：${formData.agency_company_name || '待补充'}
+  统一社会信用代码：${formData.agency_credit_code || '待补充'}
+
+三、联营资金安排
+────────────────────────────────────────────────────
+  联营资金总额：¥${parseFloat(formData.total_investment).toLocaleString('zh-CN')} 元
+  分次提供：${formData.investment_times}次
+  单次投资金额：¥${parseFloat(formData.single_investment).toLocaleString('zh-CN')} 元
+
+四、分成方案
+────────────────────────────────────────────────────
+  分成比例：${formData.revenue_sharing_rate}%
+  年化成本率：${formData.annual_cost_rate}%
+  分成付款频率：${freqText}
+
+五、YITO封顶机制
+────────────────────────────────────────────────────
+  封顶公式：
+  封顶金额 = 联营资金 × (1 + 年化成本率 × 联营天数 ÷ 360)
+  
+  当累计分成达到封顶金额时，联营合作自动终止。
+
+六、银行账户信息
+────────────────────────────────────────────────────
+  合作方收款账户：
+    户名：${formData.agency_account_name || '待补充'}
+    账号：${formData.agency_account_number || '待补充'}
+    开户行：${formData.agency_bank || '待补充'}
+    开户支行：${formData.agency_bank_branch || '待补充'}
+  
+  联营方开票信息：
+    企业名称：${formData.partner_invoice_name || '待补充'}
+    纳税人识别号：${formData.partner_tax_id || '待补充'}
+
+═══════════════════════════════════════════════════════
+
+生成时间：${new Date().toLocaleString('zh-CN')}
+
+注意：本草案仅供参考，正式协议需联系滴灌通工作人员确认。
+  `
+  
+  // 显示成功提示并提供下载
+  const resultDiv = document.getElementById('agreementResult')
+  resultDiv.innerHTML = `
+    <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+      <div class="flex items-center mb-3">
+        <i class="fas fa-check-circle text-green-600 text-2xl mr-3"></i>
+        <div>
+          <h4 class="font-semibold text-gray-800">协议信息已收集成功！</h4>
+          <p class="text-sm text-gray-600 mt-1">
+            您可以预览或下载协议草案，正式签署请联系滴灌通工作人员。
+          </p>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button 
+          id="downloadAgreement"
+          class="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
+        >
+          <i class="fas fa-download mr-2"></i>下载协议草案
+        </button>
+        <button 
+          id="previewAgreementText"
+          class="flex-1 bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-700 transition"
+        >
+          <i class="fas fa-eye mr-2"></i>预览协议内容
+        </button>
+      </div>
+    </div>
+  `
+  
+  resultDiv.classList.remove('hidden')
+  resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  
+  // 下载协议功能
+  document.getElementById('downloadAgreement')?.addEventListener('click', () => {
+    const blob = new Blob([agreementText], { type: 'text/plain;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `投流通联营协议草案_${formData.partner_company_name}_${new Date().toISOString().slice(0,10)}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  })
+  
+  // 预览协议功能
+  document.getElementById('previewAgreementText')?.addEventListener('click', () => {
+    alert(agreementText)
+  })
   
   // 在实际应用中，这里应该发送到后端API保存数据
   console.log('协议数据已收集:', formData)
-})
-
-// 预览协议按钮
-document.getElementById('previewAgreement')?.addEventListener('click', () => {
-  const formData = {
-    company_name: document.getElementById('ag_company_name').value || '[待填写]',
-    brand: document.getElementById('ag_brand').value || '[待填写]',
-    investment_amount: document.getElementById('ag_investment_amount').value || '[待填写]',
-    revenue_sharing_rate: document.getElementById('ag_revenue_sharing_rate').value || '[待填写]',
-    payment_frequency: document.getElementById('ag_payment_frequency').value || '[待填写]',
-    annual_return_rate: document.getElementById('ag_annual_return_rate').value || '[待填写]'
-  }
-  
-  let freqText = ''
-  switch(formData.payment_frequency) {
-    case 'daily': freqText = '每自然日'; break
-    case 'weekly': freqText = '每一个自然周'; break
-    case 'biweekly': freqText = '每两个自然周'; break
-    default: freqText = formData.payment_frequency
-  }
-  
-  const previewText = `
-联营协议预览
-
-联营方：${formData.company_name}
-经营品牌：${formData.brand}
-
-联营资金：${formData.investment_amount} 元
-分成比例：${formData.revenue_sharing_rate}%
-分成频率：${freqText}
-年化成本：${formData.annual_return_rate}
-
-YITO封顶机制：
-封顶金额 = 联营资金 × (1 + 年化成本 × 联营天数 ÷ 360)
-
-当累计分成达到封顶金额时，联营合作自动终止。
-  `
-  
-  alert(previewText)
 })
 
 // 页面加载动画

@@ -7,6 +7,69 @@ const app = new Hono()
 app.use('/api/*', cors())
 app.use(renderer)
 
+// API路由 - 融资方准入评估
+app.post('/api/check-qualification', async (c) => {
+  const { 
+    category,
+    avgROI,
+    avgReturnRate,
+    avgNetProfit,
+    shopRating,
+    operatingMonths
+  } = await c.req.json()
+  
+  // 品类准入标准配置
+  const categoryStandards: Record<string, { minROI: number; maxReturnRate: number; minNetProfit: number }> = {
+    '女装': { minROI: 1.8, maxReturnRate: 35, minNetProfit: 15 },
+    '男装': { minROI: 1.8, maxReturnRate: 30, minNetProfit: 18 },
+    '美妆': { minROI: 2.0, maxReturnRate: 30, minNetProfit: 20 },
+    '食品': { minROI: 1.5, maxReturnRate: 15, minNetProfit: 12 },
+    '日用': { minROI: 1.6, maxReturnRate: 20, minNetProfit: 15 },
+    '母婴': { minROI: 1.7, maxReturnRate: 25, minNetProfit: 18 },
+    '家电': { minROI: 1.5, maxReturnRate: 10, minNetProfit: 10 },
+    '家居': { minROI: 1.6, maxReturnRate: 20, minNetProfit: 15 },
+    '药品': { minROI: 1.8, maxReturnRate: 5, minNetProfit: 25 }
+  }
+  
+  const standard = categoryStandards[category] || { minROI: 1.8, maxReturnRate: 25, minNetProfit: 15 }
+  
+  // 通用标准
+  const minShopRating = 3.5
+  const minOperatingMonths = 6
+  
+  // 检查各项指标
+  const checks = {
+    roi: { pass: avgROI >= standard.minROI, value: avgROI, standard: standard.minROI, label: '近三个月日均投流ROI' },
+    returnRate: { pass: avgReturnRate <= standard.maxReturnRate, value: avgReturnRate, standard: standard.maxReturnRate, label: '近三个月日均退货率' },
+    netProfit: { pass: avgNetProfit >= standard.minNetProfit, value: avgNetProfit, standard: standard.minNetProfit, label: '近三个月商品平均净利' },
+    shopRating: { pass: shopRating >= minShopRating, value: shopRating, standard: minShopRating, label: '抖音店铺当前评分' },
+    operatingMonths: { pass: operatingMonths >= minOperatingMonths, value: operatingMonths, standard: minOperatingMonths, label: '抖音店铺运营时间' }
+  }
+  
+  const allPassed = Object.values(checks).every(check => check.pass)
+  const failedChecks = Object.entries(checks).filter(([_, check]) => !check.pass)
+  
+  return c.json({
+    qualified: allPassed,
+    category,
+    checks,
+    failedChecks: failedChecks.map(([key, check]) => ({
+      key,
+      label: check.label,
+      value: check.value,
+      standard: check.standard,
+      message: key === 'returnRate' 
+        ? `${check.label}: ${check.value}% (应≤${check.standard}%)`
+        : key === 'operatingMonths'
+        ? `${check.label}: ${check.value}个月 (应≥${check.standard}个月)`
+        : key === 'shopRating'
+        ? `${check.label}: ${check.value}分 (应≥${check.standard}分)`
+        : `${check.label}: ${check.value}% (应≥${check.standard}%)`
+    })),
+    message: allPassed ? '恭喜！您的店铺符合准入标准！' : '抱歉，您的店铺暂不符合准入标准。'
+  })
+})
+
 // API路由 - 单笔联营融资方计算
 app.post('/api/calculate-financing', async (c) => {
   const { 
@@ -289,6 +352,134 @@ app.get('/', (c) => {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        {/* Qualification Assessment */}
+        <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-lg p-8 mb-8 border-t-4 border-green-600">
+          <div class="flex items-center mb-6">
+            <div class="bg-green-100 rounded-full p-3 mr-4">
+              <i class="fas fa-check-circle text-2xl text-green-600"></i>
+            </div>
+            <div>
+              <h2 class="text-2xl font-bold text-gray-800">融资方准入评估</h2>
+              <p class="text-sm text-gray-600">快速评估您的店铺是否符合融资准入标准</p>
+            </div>
+          </div>
+          
+          <form id="qualificationForm" class="space-y-4">
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  <i class="fas fa-tags text-green-600 mr-1"></i>
+                  商品品类 *
+                </label>
+                <select 
+                  id="q_category"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">请选择品类</option>
+                  <option value="女装">女装</option>
+                  <option value="男装">男装</option>
+                  <option value="美妆">美妆</option>
+                  <option value="食品">食品</option>
+                  <option value="日用">日用</option>
+                  <option value="母婴">母婴</option>
+                  <option value="家电">家电</option>
+                  <option value="家居">家居</option>
+                  <option value="药品">药品</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  <i class="fas fa-chart-line text-green-600 mr-1"></i>
+                  近三个月日均投流ROI *
+                </label>
+                <input 
+                  type="number" 
+                  id="q_avgROI" 
+                  step="0.1"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="例如：2.5"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  <i class="fas fa-undo text-green-600 mr-1"></i>
+                  近三个月日均抖音店铺退货率 (%) *
+                </label>
+                <input 
+                  type="number" 
+                  id="q_avgReturnRate" 
+                  step="0.1"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="例如：15"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  <i class="fas fa-percentage text-green-600 mr-1"></i>
+                  近三个月商品平均净利 (%) *
+                </label>
+                <input 
+                  type="number" 
+                  id="q_avgNetProfit" 
+                  step="0.1"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="例如：20"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  <i class="fas fa-star text-green-600 mr-1"></i>
+                  抖音店铺当前评分 *
+                </label>
+                <input 
+                  type="number" 
+                  id="q_shopRating" 
+                  step="0.1"
+                  min="0"
+                  max="5"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="例如：4.5"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  <i class="fas fa-calendar-alt text-green-600 mr-1"></i>
+                  抖音店铺运营时间 (月) *
+                </label>
+                <input 
+                  type="number" 
+                  id="q_operatingMonths" 
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="例如：12"
+                  required
+                />
+              </div>
+            </div>
+            
+            <button 
+              type="submit"
+              class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition shadow-lg"
+            >
+              <i class="fas fa-check-circle mr-2"></i>
+              评估准入资格
+            </button>
+          </form>
+          
+          <div id="qualificationResult" class="mt-6 hidden">
+            <div id="qualificationContent"></div>
           </div>
         </div>
 
