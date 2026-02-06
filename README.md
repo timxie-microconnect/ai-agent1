@@ -10,9 +10,35 @@
 - 📊 **YITO封顶**：单利计算，透明可控
 
 ## 在线演示
+- **生产环境**：https://webapp-bpq.pages.dev
+- **最新部署**：https://d87930d8.webapp-bpq.pages.dev
 - **沙盒环境**：https://3000-ix8ugcegod23x3fqqk0dd-0e616f0a.sandbox.novita.ai
 
 ## 核心功能
+
+### 0. 融资方准入评估（新增）✨
+**目标用户**：希望了解是否符合融资准入标准的抖音电商商家
+
+**输入项**：
+- 商品品类（女装/男装/美妆/食品/日用/母婴/家电/家居/药品）
+- 近三个月日均投流ROI
+- 近三个月日均抖音店铺退货率 (%)
+- 近三个月商品平均净利 (%)
+- 抖音店铺当前评分
+- 抖音店铺运营时间（月）
+
+**品类差异化标准示例**：
+- **美妆**：ROI≥2.0，退货率≤30%，净利≥20%
+- **食品**：ROI≥1.5，退货率≤15%，净利≥12%
+- **药品**：ROI≥1.8，退货率≤5%，净利≥25%
+
+**通用标准**（所有品类）：
+- 抖音店铺当前评分 ≥3.5分
+- 抖音店铺运营时间 ≥6个月
+
+**输出结果**：
+- ✅ 符合标准：显示所有达标指标，引导填写融资方计算器
+- ❌ 不符合标准：显示未达标项目和改进建议
 
 ### 1. 单笔联营融资方计算器
 **目标用户**：需要投流资金的抖音电商品牌商家
@@ -303,12 +329,14 @@ npx wrangler pages project create webapp \
 
 ### 部署
 ```bash
-npx wrangler pages deploy dist --project-name webapp
+# 部署到生产环境
+npx wrangler pages deploy dist --project-name webapp --commit-message "Deploy webapp" --branch main
 ```
 
 ### 访问URL
-- 生产环境：`https://webapp.pages.dev`
-- 分支环境：`https://main.webapp.pages.dev`
+- **生产环境**：https://webapp-bpq.pages.dev
+- **最新部署**：https://d87930d8.webapp-bpq.pages.dev
+- **GitHub仓库**：https://github.com/timxie-microconnect/ai-agent1
 
 ## 品牌背书
 
@@ -392,7 +420,21 @@ npx wrangler pages deploy dist --project-name webapp
 ### Q4: 协议信息收集后会如何处理？
 **A**: 信息提交后，滴灌通团队会与您联系，进行尽职调查和协议签署流程。
 
+### Q5: 准入评估不通过怎么办？
+**A**: 根据未达标项目改进店铺运营指标后可重新评估，或联系客服咨询特殊准入通道。不同品类有不同的标准要求，可尝试选择更适合的品类。
+
 ## 更新日志
+
+### v1.4.0 (2026-02-06)
+- ✅ **新增融资方准入评估模块**（位于计算器上方）
+- ✅ 支持9大品类差异化准入标准
+- ✅ 品类标准：女装/男装/美妆/食品/日用/母婴/家电/家居/药品
+- ✅ 通用标准：店铺评分≥3.5分，运营时间≥6个月
+- ✅ 修复协议表单字段ID不匹配问题
+- ✅ 新增协议草案下载功能（.txt文件）
+- ✅ 新增协议内容预览功能
+- ✅ 部署到Cloudflare Pages生产环境
+- ✅ 生产URL：https://webapp-bpq.pages.dev
 
 ### v1.3.0 (2025-02-05)
 - ✅ 新增协议预填项收集模块
