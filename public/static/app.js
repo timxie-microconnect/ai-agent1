@@ -860,7 +860,7 @@ Router.add('/dashboard', renderDashboard);
 Router.add('/project/:id', renderProjectDetail);
 Router.add('/admin/login', renderAdminLoginPage);
 Router.add('/admin', renderAdminDashboard);
-Router.add('/admin/scoring-config', renderScoringConfigPage);
+// 注意：/admin/scoring-config 路由在 app-extended.js 中注册
 
 // ==================== 全局函数导出 ====================
 window.loadAdminProjects = refreshAdminProjects;

@@ -444,3 +444,9 @@ window.showDueDiligenceModal = showDueDiligenceModal;
 window.handleDDFileUpload = handleDDFileUpload;
 window.updateChecklistNotes = updateChecklistNotes;
 window.submitDueDiligence = submitDueDiligence;
+
+// ========== 路由注册 ==========
+// 等待主应用Router加载完成后注册扩展路由
+if (typeof Router !== 'undefined' && Router.add) {
+  Router.add('/admin/scoring-config', renderScoringConfigPage);
+}

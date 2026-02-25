@@ -777,24 +777,6 @@ app.get('/nav', (c) => {
             </a>
         </div>
 
-        <div class="bg-blue-50 rounded-lg p-6">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">
-                <i class="fas fa-info-circle text-blue-600 mr-2"></i>测试账号
-            </h3>
-            <div class="grid md:grid-cols-2 gap-4">
-                <div class="bg-white rounded p-4">
-                    <h4 class="font-semibold text-blue-600 mb-2">👤 普通用户</h4>
-                    <p class="text-sm text-gray-600">用户名: <code class="bg-gray-100 px-2 py-1 rounded">testuser</code></p>
-                    <p class="text-sm text-gray-600">密码: <code class="bg-gray-100 px-2 py-1 rounded">test123</code></p>
-                </div>
-                <div class="bg-white rounded p-4">
-                    <h4 class="font-semibold text-gray-700 mb-2">🛡️ 管理员</h4>
-                    <p class="text-sm text-gray-600">用户名: <code class="bg-gray-100 px-2 py-1 rounded">admin</code></p>
-                    <p class="text-sm text-gray-600">密码: <code class="bg-gray-100 px-2 py-1 rounded">admin123</code></p>
-                </div>
-            </div>
-        </div>
-
         <div class="mt-6 pt-6 border-t border-gray-200">
             <h3 class="text-sm font-semibold text-gray-600 mb-3">快速链接</h3>
             <div class="flex flex-wrap gap-2">
@@ -808,7 +790,7 @@ app.get('/nav', (c) => {
         </div>
 
         <div class="mt-6 text-center text-sm text-gray-500">
-            <p>© 2026 滴灌投资信息收集系统 | v1.0.0</p>
+            <p>© 2026 滴灌投资信息收集系统 | v2.0.0</p>
         </div>
     </div>
 </body>
