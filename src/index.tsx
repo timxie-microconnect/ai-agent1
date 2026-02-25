@@ -1,12 +1,705 @@
-import { Hono } from 'hono'
-import { renderer } from './renderer'
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { serveStatic } from 'hono/cloudflare-workers';
+import { calculateScore } from './scoring';
+import { generateSubmissionCode, formatDateTime, getStatusText, getStatusColor, createSimpleToken, verifySimpleToken } from './utils';
 
-const app = new Hono()
+type Bindings = {
+  DB: D1Database;
+}
 
-app.use(renderer)
+const app = new Hono<{ Bindings: Bindings }>();
 
+// Enable CORS
+app.use('/api/*', cors());
+
+// Serve static files
+app.use('/static/*', serveStatic({ root: './public' }));
+
+// Middleware: Auth check for user routes
+const authMiddleware = async (c: any, next: any) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: '未授权' }, 401);
+  }
+  
+  const token = authHeader.substring(7);
+  const user = verifySimpleToken(token);
+  
+  if (!user) {
+    return c.json({ error: '令牌无效或已过期' }, 401);
+  }
+  
+  c.set('user', user);
+  await next();
+};
+
+// Middleware: Admin auth check
+const adminAuthMiddleware = async (c: any, next: any) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: '未授权' }, 401);
+  }
+  
+  const token = authHeader.substring(7);
+  const user = verifySimpleToken(token);
+  
+  if (!user) {
+    return c.json({ error: '令牌无效或已过期' }, 401);
+  }
+  
+  // Check if user is admin
+  const { DB } = c.env;
+  const result = await DB.prepare('SELECT is_admin FROM users WHERE id = ?').bind(user.userId).first();
+  
+  if (!result || !result.is_admin) {
+    return c.json({ error: '需要管理员权限' }, 403);
+  }
+  
+  c.set('user', user);
+  await next();
+};
+
+// ==================== 用户认证 API ====================
+
+// 用户注册
+app.post('/api/register', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  
+  const { username, password, companyName, contactName, contactPhone, contactEmail } = body;
+  
+  // 验证必填字段
+  if (!username || !password || !companyName || !contactName || !contactPhone || !contactEmail) {
+    return c.json({ error: '所有字段都是必填的' }, 400);
+  }
+  
+  // 检查用户名是否已存在
+  const existing = await DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
+  if (existing) {
+    return c.json({ error: '用户名已存在' }, 400);
+  }
+  
+  // 插入新用户
+  const result = await DB.prepare(
+    'INSERT INTO users (username, password, company_name, contact_name, contact_phone, contact_email) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(username, password, companyName, contactName, contactPhone, contactEmail).run();
+  
+  const userId = result.meta.last_row_id;
+  const token = createSimpleToken(userId, username);
+  
+  return c.json({ 
+    success: true, 
+    token,
+    user: { 
+      id: userId, 
+      username, 
+      companyName, 
+      contactName 
+    } 
+  });
+});
+
+// 用户登录
+app.post('/api/login', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  
+  const { username, password } = body;
+  
+  if (!username || !password) {
+    return c.json({ error: '用户名和密码不能为空' }, 400);
+  }
+  
+  const user = await DB.prepare(
+    'SELECT id, username, company_name, contact_name, is_admin FROM users WHERE username = ? AND password = ?'
+  ).bind(username, password).first();
+  
+  if (!user) {
+    return c.json({ error: '用户名或密码错误' }, 401);
+  }
+  
+  const token = createSimpleToken(user.id as number, user.username as string);
+  
+  return c.json({ 
+    success: true, 
+    token,
+    user: { 
+      id: user.id, 
+      username: user.username, 
+      companyName: user.company_name, 
+      contactName: user.contact_name,
+      isAdmin: user.is_admin
+    } 
+  });
+});
+
+// 管理员登录
+app.post('/api/admin/login', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  
+  const { username, password } = body;
+  
+  if (!username || !password) {
+    return c.json({ error: '用户名和密码不能为空' }, 400);
+  }
+  
+  const user = await DB.prepare(
+    'SELECT id, username, company_name, contact_name FROM users WHERE username = ? AND password = ? AND is_admin = 1'
+  ).bind(username, password).first();
+  
+  if (!user) {
+    return c.json({ error: '用户名或密码错误，或您不是管理员' }, 401);
+  }
+  
+  const token = createSimpleToken(user.id as number, user.username as string);
+  
+  return c.json({ 
+    success: true, 
+    token,
+    user: { 
+      id: user.id, 
+      username: user.username, 
+      companyName: user.company_name, 
+      contactName: user.contact_name,
+      isAdmin: true
+    } 
+  });
+});
+
+// ==================== 项目管理 API ====================
+
+// 提交项目（10步表单）
+app.post('/api/projects', authMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const body = await c.req.json();
+  
+  const submissionCode = generateSubmissionCode();
+  
+  try {
+    // 插入项目主表
+    const projectResult = await DB.prepare(`
+      INSERT INTO projects (
+        user_id, submission_code, status,
+        is_same_entity, has_income_sharing, relationship_type, fund_usage,
+        company_name_a, credit_code_a, address_a, established_date_a, industry_a, 
+        introduction_a, business_scope_a, business_description_a,
+        product_category, roi, return_rate, profit_rate, shop_score, operation_months,
+        company_name_b, credit_code_b, address_b, introduction_b, shop_model_b,
+        contact_name, contact_phone, contact_email, wechat, remark,
+        bank_name, bank_account, bank_address, invoice_type, tax_id, invoice_address, invoice_phone,
+        total_amount, batch_count, batch_amount, first_amount, subsequent_amount,
+        roi_target, roi_recovery_days, roi_maintain_days, profit_share, annual_rate,
+        repayment_frequency, repayment_rules
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      user.userId, submissionCode, 'pending',
+      body.step1?.isSameEntity, body.step1?.hasIncomeSharing, body.step1?.relationshipType, body.step1?.fundUsage,
+      body.step2?.companyName, body.step2?.creditCode, body.step2?.address, body.step2?.establishedDate, body.step2?.industry,
+      body.step2?.introduction, body.step2?.businessScope, body.step2?.businessDescription,
+      body.step2?.productCategory, body.step2?.roi, body.step2?.returnRate, body.step2?.profitRate, body.step2?.shopScore, body.step2?.operationMonths,
+      body.step3?.companyName, body.step3?.creditCode, body.step3?.address, body.step3?.introduction, body.step3?.shopModel,
+      body.step6?.contactName, body.step6?.contactPhone, body.step6?.contactEmail, body.step6?.wechat, body.step6?.remark,
+      body.step7?.bankName, body.step7?.bankAccount, body.step7?.bankAddress, body.step7?.invoiceType, body.step7?.taxId, body.step7?.invoiceAddress, body.step7?.invoicePhone,
+      body.step9?.totalAmount, body.step9?.batchCount, body.step9?.batchAmount, body.step9?.firstAmount, body.step9?.subsequentAmount,
+      body.step9?.roiTarget, body.step9?.roiRecoveryDays, body.step9?.roiMaintainDays, body.step9?.profitShare, body.step9?.annualRate,
+      body.step9?.repaymentFrequency, body.step9?.repaymentRules
+    ).run();
+    
+    const projectId = projectResult.meta.last_row_id;
+    
+    // 插入法定代表人
+    if (body.step4 && Array.isArray(body.step4)) {
+      for (const rep of body.step4) {
+        await DB.prepare(`
+          INSERT INTO legal_representatives (project_id, entity_type, name, id_type, id_number, address, email, phone)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(projectId, rep.entityType, rep.name, rep.idType, rep.idNumber, rep.address, rep.email, rep.phone).run();
+      }
+    }
+    
+    // 插入实控人
+    if (body.step5 && Array.isArray(body.step5)) {
+      for (const controller of body.step5) {
+        await DB.prepare(`
+          INSERT INTO actual_controllers (project_id, name, id_type, id_number, address, email, phone, shareholding)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(projectId, controller.name, controller.idType, controller.idNumber, controller.address, controller.email, controller.phone, controller.shareholding).run();
+      }
+    }
+    
+    // 插入平台账号
+    if (body.step8 && Array.isArray(body.step8)) {
+      for (const account of body.step8) {
+        await DB.prepare(`
+          INSERT INTO platform_accounts (project_id, platform_name, account_description, has_qianchuan, remark)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(projectId, account.platformName, account.accountDescription, account.hasQianchuan, account.remark).run();
+      }
+    }
+    
+    return c.json({ 
+      success: true, 
+      projectId, 
+      submissionCode 
+    });
+  } catch (error: any) {
+    console.error('Error creating project:', error);
+    return c.json({ error: '创建项目失败：' + error.message }, 500);
+  }
+});
+
+// 获取用户的项目列表
+app.get('/api/projects', authMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  
+  const { results } = await DB.prepare(`
+    SELECT id, submission_code, status, company_name_a as project_name, created_at
+    FROM projects 
+    WHERE user_id = ? 
+    ORDER BY created_at DESC
+  `).bind(user.userId).all();
+  
+  return c.json({ 
+    success: true, 
+    projects: results.map((p: any) => ({
+      id: p.id,
+      submissionCode: p.submission_code,
+      status: p.status,
+      statusText: getStatusText(p.status),
+      statusColor: getStatusColor(p.status),
+      projectName: p.project_name,
+      createdAt: formatDateTime(p.created_at)
+    }))
+  });
+});
+
+// 获取项目详情
+app.get('/api/projects/:id', authMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  
+  // 获取项目基本信息
+  const project = await DB.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').bind(projectId, user.userId).first();
+  
+  if (!project) {
+    return c.json({ error: '项目不存在' }, 404);
+  }
+  
+  // 获取法定代表人
+  const { results: legalReps } = await DB.prepare('SELECT * FROM legal_representatives WHERE project_id = ?').bind(projectId).all();
+  
+  // 获取实控人
+  const { results: controllers } = await DB.prepare('SELECT * FROM actual_controllers WHERE project_id = ?').bind(projectId).all();
+  
+  // 获取平台账号
+  const { results: accounts } = await DB.prepare('SELECT * FROM platform_accounts WHERE project_id = ?').bind(projectId).all();
+  
+  // 获取评分结果
+  const scoring = await DB.prepare('SELECT * FROM scoring_results WHERE project_id = ? ORDER BY scored_at DESC LIMIT 1').bind(projectId).first();
+  
+  // 获取工作流历史
+  const { results: workflowHistory } = await DB.prepare(`
+    SELECT wh.*, u.username as operator_name
+    FROM workflow_history wh
+    LEFT JOIN users u ON wh.operator_id = u.id
+    WHERE wh.project_id = ?
+    ORDER BY wh.created_at ASC
+  `).bind(projectId).all();
+  
+  return c.json({ 
+    success: true, 
+    project: {
+      ...project,
+      statusText: getStatusText(project.status as string),
+      statusColor: getStatusColor(project.status as string),
+      createdAt: formatDateTime(project.created_at as string),
+      legalRepresentatives: legalReps,
+      actualControllers: controllers,
+      platformAccounts: accounts,
+      scoring: scoring ? {
+        ...scoring,
+        scoredAt: formatDateTime(scoring.scored_at as string)
+      } : null,
+      workflowHistory: workflowHistory.map((h: any) => ({
+        ...h,
+        fromStatusText: getStatusText(h.from_status),
+        toStatusText: getStatusText(h.to_status),
+        createdAt: formatDateTime(h.created_at)
+      }))
+    }
+  });
+});
+
+// ==================== 管理员 API ====================
+
+// 获取所有项目（管理员）
+app.get('/api/admin/projects', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  
+  const { results } = await DB.prepare(`
+    SELECT p.id, p.submission_code, p.status, p.company_name_a as project_name, p.created_at, u.username, u.company_name
+    FROM projects p
+    LEFT JOIN users u ON p.user_id = u.id
+    ORDER BY p.created_at DESC
+  `).all();
+  
+  return c.json({ 
+    success: true, 
+    projects: results.map((p: any) => ({
+      id: p.id,
+      submissionCode: p.submission_code,
+      status: p.status,
+      statusText: getStatusText(p.status),
+      statusColor: getStatusColor(p.status),
+      projectName: p.project_name,
+      username: p.username,
+      companyName: p.company_name,
+      createdAt: formatDateTime(p.created_at)
+    }))
+  });
+});
+
+// 获取项目详情（管理员）
+app.get('/api/admin/projects/:id', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const projectId = c.req.param('id');
+  
+  // 获取项目基本信息
+  const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  
+  if (!project) {
+    return c.json({ error: '项目不存在' }, 404);
+  }
+  
+  // 获取法定代表人
+  const { results: legalReps } = await DB.prepare('SELECT * FROM legal_representatives WHERE project_id = ?').bind(projectId).all();
+  
+  // 获取实控人
+  const { results: controllers } = await DB.prepare('SELECT * FROM actual_controllers WHERE project_id = ?').bind(projectId).all();
+  
+  // 获取平台账号
+  const { results: accounts } = await DB.prepare('SELECT * FROM platform_accounts WHERE project_id = ?').bind(projectId).all();
+  
+  // 获取评分结果
+  const scoring = await DB.prepare('SELECT * FROM scoring_results WHERE project_id = ? ORDER BY scored_at DESC LIMIT 1').bind(projectId).first();
+  
+  // 获取工作流历史
+  const { results: workflowHistory } = await DB.prepare(`
+    SELECT wh.*, u.username as operator_name
+    FROM workflow_history wh
+    LEFT JOIN users u ON wh.operator_id = u.id
+    WHERE wh.project_id = ?
+    ORDER BY wh.created_at ASC
+  `).bind(projectId).all();
+  
+  return c.json({ 
+    success: true, 
+    project: {
+      ...project,
+      statusText: getStatusText(project.status as string),
+      statusColor: getStatusColor(project.status as string),
+      createdAt: formatDateTime(project.created_at as string),
+      legalRepresentatives: legalReps,
+      actualControllers: controllers,
+      platformAccounts: accounts,
+      scoring: scoring ? {
+        ...scoring,
+        scoredAt: formatDateTime(scoring.scored_at as string)
+      } : null,
+      workflowHistory: workflowHistory.map((h: any) => ({
+        ...h,
+        fromStatusText: getStatusText(h.from_status),
+        toStatusText: getStatusText(h.to_status),
+        createdAt: formatDateTime(h.created_at)
+      }))
+    }
+  });
+});
+
+// 智能评分
+app.post('/api/admin/projects/:id/score', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  
+  // 获取项目信息
+  const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first();
+  
+  if (!project) {
+    return c.json({ error: '项目不存在' }, 404);
+  }
+  
+  // 执行评分
+  const scoringResult = calculateScore(
+    project.product_category as string,
+    project.roi as number,
+    project.return_rate as number,
+    project.profit_rate as number,
+    project.shop_score as number,
+    project.operation_months as number
+  );
+  
+  // 保存评分结果
+  await DB.prepare(`
+    INSERT INTO scoring_results (
+      project_id, roi_score, return_rate_score, profit_score, 
+      shop_score_value, operation_score, total_score, passed, evaluation_suggestion
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    projectId,
+    scoringResult.roiScore,
+    scoringResult.returnRateScore,
+    scoringResult.profitScore,
+    scoringResult.shopScoreValue,
+    scoringResult.operationScore,
+    scoringResult.totalScore,
+    scoringResult.passed ? 1 : 0,
+    scoringResult.evaluationSuggestion
+  ).run();
+  
+  // 更新项目状态为 scoring
+  await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind('scoring', projectId).run();
+  
+  // 记录工作流
+  await DB.prepare(`
+    INSERT INTO workflow_history (project_id, from_status, to_status, operator_id)
+    VALUES (?, ?, ?, ?)
+  `).bind(projectId, project.status, 'scoring', user.userId).run();
+  
+  return c.json({ 
+    success: true, 
+    scoring: scoringResult
+  });
+});
+
+// 审批操作
+app.post('/api/admin/projects/:id/approve', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  const body = await c.req.json();
+  
+  const { action, remark } = body; // action: 'approve' or 'reject'
+  
+  const project = await DB.prepare('SELECT status FROM projects WHERE id = ?').bind(projectId).first();
+  
+  if (!project) {
+    return c.json({ error: '项目不存在' }, 404);
+  }
+  
+  const newStatus = action === 'approve' ? 'approved' : 'rejected';
+  
+  // 更新项目状态
+  await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(newStatus, projectId).run();
+  
+  // 记录工作流
+  await DB.prepare(`
+    INSERT INTO workflow_history (project_id, from_status, to_status, operator_id, remark)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(projectId, project.status, newStatus, user.userId, remark || '').run();
+  
+  return c.json({ 
+    success: true, 
+    newStatus 
+  });
+});
+
+// 上传协议
+app.post('/api/admin/projects/:id/upload-contract', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  
+  const project = await DB.prepare('SELECT status FROM projects WHERE id = ?').bind(projectId).first();
+  
+  if (!project) {
+    return c.json({ error: '项目不存在' }, 404);
+  }
+  
+  // 更新项目状态
+  await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind('contract_uploaded', projectId).run();
+  
+  // 记录工作流
+  await DB.prepare(`
+    INSERT INTO workflow_history (project_id, from_status, to_status, operator_id)
+    VALUES (?, ?, ?, ?)
+  `).bind(projectId, project.status, 'contract_uploaded', user.userId).run();
+  
+  return c.json({ 
+    success: true 
+  });
+});
+
+// 确认出资
+app.post('/api/admin/projects/:id/confirm-funding', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  
+  const project = await DB.prepare('SELECT status FROM projects WHERE id = ?').bind(projectId).first();
+  
+  if (!project) {
+    return c.json({ error: '项目不存在' }, 404);
+  }
+  
+  // 更新项目状态
+  await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind('funded', projectId).run();
+  
+  // 记录工作流
+  await DB.prepare(`
+    INSERT INTO workflow_history (project_id, from_status, to_status, operator_id)
+    VALUES (?, ?, ?, ?)
+  `).bind(projectId, project.status, 'funded', user.userId).run();
+  
+  return c.json({ 
+    success: true 
+  });
+});
+
+// 删除项目
+app.delete('/api/admin/projects/:id', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const projectId = c.req.param('id');
+  
+  // 删除项目（级联删除会自动删除相关记录）
+  await DB.prepare('DELETE FROM projects WHERE id = ?').bind(projectId).run();
+  
+  return c.json({ 
+    success: true 
+  });
+});
+
+// ==================== 前端路由 ====================
+
+// 主页（10步表单）
 app.get('/', (c) => {
-  return c.render(<h1>Hello!</h1>)
-})
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>滴灌投资信息收集系统</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
+    </body>
+    </html>
+  `);
+});
 
-export default app
+// 用户仪表盘
+app.get('/dashboard', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>用户仪表盘 - 滴灌投资</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
+    </body>
+    </html>
+  `);
+});
+
+// 项目详情
+app.get('/project/:id', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>项目详情 - 滴灌投资</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
+    </body>
+    </html>
+  `);
+});
+
+// 用户登录
+app.get('/login', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>登录/注册 - 滴灌投资</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
+    </body>
+    </html>
+  `);
+});
+
+// 管理员登录
+app.get('/admin/login', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>管理员登录 - 滴灌投资</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
+    </body>
+    </html>
+  `);
+});
+
+// 管理员后台
+app.get('/admin', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>管理员后台 - 滴灌投资</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/app.js"></script>
+    </body>
+    </html>
+  `);
+});
+
+export default app;
