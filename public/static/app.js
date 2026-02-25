@@ -599,9 +599,14 @@ async function renderAdminDashboard() {
         <nav class="bg-gray-800 text-white">
           <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-2xl font-bold"><i class="fas fa-shield-alt mr-2"></i>后台管理系统</h1>
-            <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg">
-              <i class="fas fa-sign-out-alt mr-2"></i>退出
-            </button>
+            <div class="flex space-x-4">
+              <button onclick="renderScoringConfigPage()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">
+                <i class="fas fa-sliders-h mr-2"></i>评分配置
+              </button>
+              <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg">
+                <i class="fas fa-sign-out-alt mr-2"></i>退出
+              </button>
+            </div>
           </div>
         </nav>
         
@@ -755,8 +760,15 @@ window.openAdminProjectModal = async function(id) {
 
 window.handleScoreProject = async function(id) {
   try {
-    await API.scoreProject(id);
-    showAlert('评分成功！', 'success');
+    // 使用动态评分API
+    const result = await API_EXTENDED.scoreDynamic(id);
+    
+    if (result.autoRejected) {
+      showAlert(`评分完成：${result.totalScore}分，低于60分阈值，已自动拒绝`, 'warning');
+    } else {
+      showAlert(`评分完成：${result.totalScore}分，${result.passed ? '达到投资标准' : '未达标'}`, 'success');
+    }
+    
     document.getElementById('adminModal').remove();
     refreshAdminProjects();
   } catch (error) {
@@ -765,31 +777,56 @@ window.handleScoreProject = async function(id) {
 };
 
 window.handleApprove = async function(id, action) {
-  let remark = '';
   if (action === 'reject') {
-    remark = prompt('请输入拒绝原因：');
+    const remark = prompt('请输入拒绝原因：');
     if (!remark) return;
-  }
-  
-  try {
-    await API.approveProject(id, action, remark);
-    showAlert(`${action === 'approve' ? '审批通过' : '审批拒绝'}成功！`, 'success');
+    
+    try {
+      await API.approveProject(id, action, remark);
+      showAlert('审批拒绝成功！', 'success');
+      document.getElementById('adminModal').remove();
+      refreshAdminProjects();
+    } catch (error) {
+      showAlert(error.message, 'error');
+    }
+  } else {
+    // 审批通过时，打开尽调checklist弹窗
     document.getElementById('adminModal').remove();
-    refreshAdminProjects();
-  } catch (error) {
-    showAlert(error.message, 'error');
+    showDueDiligenceModal(id);
   }
 };
 
-window.handleUploadContract = async function(id) {
-  try {
-    await API.uploadContract(id);
-    showAlert('协议上传成功！', 'success');
-    document.getElementById('adminModal').remove();
-    refreshAdminProjects();
-  } catch (error) {
-    showAlert(error.message, 'error');
-  }
+window.handleUploadContract = function(id) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/pdf';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      showAlert('正在上传协议...', 'info');
+      
+      // 模拟上传文件
+      const uploadResult = await simulateFileUpload(file);
+      
+      // 保存到数据库
+      await API_EXTENDED.uploadContractFile(id, {
+        file_name: uploadResult.file_name,
+        file_url: uploadResult.file_url,
+        file_size: uploadResult.file_size,
+        file_type: uploadResult.file_type,
+        uploaded_by: STATE.user.userId
+      });
+      
+      showAlert('协议上传成功！', 'success');
+      document.getElementById('adminModal')?.remove();
+      refreshAdminProjects();
+    } catch (error) {
+      showAlert('上传失败: ' + error.message, 'error');
+    }
+  };
+  input.click();
 };
 
 window.handleConfirmFunding = async function(id) {
@@ -823,6 +860,10 @@ Router.add('/dashboard', renderDashboard);
 Router.add('/project/:id', renderProjectDetail);
 Router.add('/admin/login', renderAdminLoginPage);
 Router.add('/admin', renderAdminDashboard);
+Router.add('/admin/scoring-config', renderScoringConfigPage);
+
+// ==================== 全局函数导出 ====================
+window.loadAdminProjects = refreshAdminProjects;
 
 // ==================== 应用初始化 ====================
 document.addEventListener('DOMContentLoaded', () => {

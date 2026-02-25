@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { serveStatic } from 'hono/cloudflare-workers';
 import { calculateScore } from './scoring';
 import { generateSubmissionCode, formatDateTime, getStatusText, getStatusColor, createSimpleToken, verifySimpleToken } from './utils';
+import adminExtendedApi from './api-admin-extended';
 
 type Bindings = {
   DB: D1Database;
@@ -831,6 +832,7 @@ app.get('/', (c) => {
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js"></script>
+        <script src="/static/app-extended.js"></script>
     </body>
     </html>
   `);
@@ -852,6 +854,7 @@ app.get('/dashboard', (c) => {
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js"></script>
+        <script src="/static/app-extended.js"></script>
     </body>
     </html>
   `);
@@ -873,6 +876,7 @@ app.get('/project/:id', (c) => {
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js"></script>
+        <script src="/static/app-extended.js"></script>
     </body>
     </html>
   `);
@@ -894,6 +898,7 @@ app.get('/login', (c) => {
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js"></script>
+        <script src="/static/app-extended.js"></script>
     </body>
     </html>
   `);
@@ -915,6 +920,7 @@ app.get('/admin/login', (c) => {
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js"></script>
+        <script src="/static/app-extended.js"></script>
     </body>
     </html>
   `);
@@ -936,9 +942,13 @@ app.get('/admin', (c) => {
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="/static/app.js"></script>
+        <script src="/static/app-extended.js"></script>
     </body>
     </html>
   `);
 });
+
+// 挂载扩展管理员API
+app.route('/api/admin', adminExtendedApi);
 
 export default app;
