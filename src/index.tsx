@@ -462,18 +462,29 @@ app.post('/api/admin/projects/:id/score', adminAuthMiddleware, async (c) => {
     scoringResult.evaluationSuggestion
   ).run();
   
-  // 更新项目状态为 scoring
-  await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind('scoring', projectId).run();
+  // 根据评分结果决定状态
+  let newStatus = 'scoring';
+  let workflowRemark = '';
+  
+  // 如果评分低于60分，自动拒绝
+  if (scoringResult.totalScore < 60) {
+    newStatus = 'rejected';
+    workflowRemark = `智能评分未通过（${scoringResult.totalScore}分），自动拒绝`;
+  }
+  
+  // 更新项目状态
+  await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(newStatus, projectId).run();
   
   // 记录工作流
   await DB.prepare(`
-    INSERT INTO workflow_history (project_id, from_status, to_status, operator_id)
-    VALUES (?, ?, ?, ?)
-  `).bind(projectId, project.status, 'scoring', user.userId).run();
+    INSERT INTO workflow_history (project_id, from_status, to_status, operator_id, remark)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(projectId, project.status, newStatus, user.userId, workflowRemark).run();
   
   return c.json({ 
     success: true, 
-    scoring: scoringResult
+    scoring: scoringResult,
+    autoRejected: scoringResult.totalScore < 60
   });
 });
 
@@ -571,6 +582,152 @@ app.delete('/api/admin/projects/:id', adminAuthMiddleware, async (c) => {
   
   return c.json({ 
     success: true 
+  });
+});
+
+// ==================== 尽调Checklist API ====================
+
+// 提交尽调checklist并审批通过
+app.post('/api/admin/projects/:id/due-diligence', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  const body = await c.req.json();
+  
+  const { creditFiles, trafficFiles, otherFiles } = body;
+  
+  try {
+    // 保存尽调文件信息
+    const saveFiles = async (files: any[], category: string) => {
+      if (!files || !Array.isArray(files)) return;
+      for (const file of files) {
+        await DB.prepare(`
+          INSERT INTO due_diligence_files (project_id, file_category, file_name, file_url, file_size, uploaded_by)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(projectId, category, file.fileName, file.fileUrl, file.fileSize || 0, user.userId).run();
+      }
+    };
+    
+    await saveFiles(creditFiles, 'credit');
+    await saveFiles(trafficFiles, 'traffic_data');
+    await saveFiles(otherFiles, 'other');
+    
+    // 获取项目当前状态
+    const project = await DB.prepare('SELECT status FROM projects WHERE id = ?').bind(projectId).first();
+    
+    // 更新项目状态为审批通过
+    await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind('approved', projectId).run();
+    
+    // 记录工作流
+    await DB.prepare(`
+      INSERT INTO workflow_history (project_id, from_status, to_status, operator_id, remark)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(projectId, project?.status, 'approved', user.userId, '已完成尽调核验').run();
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: '提交尽调失败：' + error.message }, 500);
+  }
+});
+
+// 获取项目的尽调文件
+app.get('/api/admin/projects/:id/due-diligence', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const projectId = c.req.param('id');
+  
+  const { results } = await DB.prepare('SELECT * FROM due_diligence_files WHERE project_id = ? ORDER BY uploaded_at DESC').bind(projectId).all();
+  
+  const creditFiles = results.filter((f: any) => f.file_category === 'credit');
+  const trafficFiles = results.filter((f: any) => f.file_category === 'traffic_data');
+  const otherFiles = results.filter((f: any) => f.file_category === 'other');
+  
+  return c.json({
+    success: true,
+    creditFiles,
+    trafficFiles,
+    otherFiles
+  });
+});
+
+// ==================== 协议文件上传 API ====================
+
+// 上传协议文件
+app.post('/api/admin/projects/:id/upload-contract-file', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  const body = await c.req.json();
+  
+  const { fileName, fileUrl, fileSize } = body;
+  
+  try {
+    // 保存协议文件信息
+    await DB.prepare(`
+      INSERT INTO contract_files (project_id, file_name, file_url, file_size, uploaded_by)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(projectId, fileName, fileUrl, fileSize || 0, user.userId).run();
+    
+    // 获取项目当前状态
+    const project = await DB.prepare('SELECT status FROM projects WHERE id = ?').bind(projectId).first();
+    
+    // 更新项目状态
+    await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind('contract_uploaded', projectId).run();
+    
+    // 记录工作流
+    await DB.prepare(`
+      INSERT INTO workflow_history (project_id, from_status, to_status, operator_id, remark)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(projectId, project?.status, 'contract_uploaded', user.userId, `上传协议：${fileName}`).run();
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    return c.json({ error: '上传失败：' + error.message }, 500);
+  }
+});
+
+// 获取项目的协议文件列表
+app.get('/api/admin/projects/:id/contract-files', adminAuthMiddleware, async (c) => {
+  const { DB } = c.env;
+  const projectId = c.req.param('id');
+  
+  const { results } = await DB.prepare('SELECT * FROM contract_files WHERE project_id = ? ORDER BY uploaded_at DESC').bind(projectId).all();
+  
+  return c.json({
+    success: true,
+    files: results
+  });
+});
+
+// 用户端也可以查看协议文件
+app.get('/api/projects/:id/contract-files', authMiddleware, async (c) => {
+  const { DB } = c.env;
+  const user = c.get('user');
+  const projectId = c.req.param('id');
+  
+  // 确认项目属于该用户
+  const project = await DB.prepare('SELECT user_id FROM projects WHERE id = ?').bind(projectId).first();
+  if (!project || project.user_id !== user.userId) {
+    return c.json({ error: '无权访问' }, 403);
+  }
+  
+  const { results } = await DB.prepare('SELECT * FROM contract_files WHERE project_id = ? ORDER BY uploaded_at DESC').bind(projectId).all();
+  
+  return c.json({
+    success: true,
+    files: results
+  });
+});
+
+// 模拟文件下载
+app.get('/api/files/download/:fileName', async (c) => {
+  const fileName = c.req.param('fileName');
+  
+  // 这里应该从R2或其他存储获取真实文件
+  // 目前返回提示信息
+  return c.json({
+    message: '文件下载功能需要配置Cloudflare R2存储',
+    fileName,
+    note: '这是模拟下载，生产环境请配置R2 bucket'
   });
 });
 
