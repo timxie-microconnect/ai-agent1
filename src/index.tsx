@@ -196,16 +196,16 @@ app.post('/api/projects', authMiddleware, async (c) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       user.userId, submissionCode, 'pending',
-      body.step1?.isSameEntity, body.step1?.hasIncomeSharing, body.step1?.relationshipType, body.step1?.fundUsage,
-      body.step2?.companyName, body.step2?.creditCode, body.step2?.address, body.step2?.establishedDate, body.step2?.industry,
-      body.step2?.introduction, body.step2?.businessScope, body.step2?.businessDescription,
-      body.step2?.productCategory, body.step2?.roi, body.step2?.returnRate, body.step2?.profitRate, body.step2?.shopScore, body.step2?.operationMonths,
-      body.step3?.companyName, body.step3?.creditCode, body.step3?.address, body.step3?.introduction, body.step3?.shopModel,
-      body.step6?.contactName, body.step6?.contactPhone, body.step6?.contactEmail, body.step6?.wechat, body.step6?.remark,
-      body.step7?.bankName, body.step7?.bankAccount, body.step7?.bankAddress, body.step7?.invoiceType, body.step7?.taxId, body.step7?.invoiceAddress, body.step7?.invoicePhone,
-      body.step9?.totalAmount, body.step9?.batchCount, body.step9?.batchAmount, body.step9?.firstAmount, body.step9?.subsequentAmount,
-      body.step9?.roiTarget, body.step9?.roiRecoveryDays, body.step9?.roiMaintainDays, body.step9?.profitShare, body.step9?.annualRate,
-      body.step9?.repaymentFrequency, body.step9?.repaymentRules
+      body.step1?.isSameEntity || null, body.step1?.hasIncomeSharing || null, body.step1?.relationshipType || null, body.step1?.fundUsage || null,
+      body.step2?.companyName || null, body.step2?.creditCode || null, body.step2?.address || null, body.step2?.establishedDate || null, body.step2?.industry || null,
+      body.step2?.introduction || null, body.step2?.businessScope || null, body.step2?.businessDescription || null,
+      body.step2?.productCategory || null, body.step2?.roi || null, body.step2?.returnRate || null, body.step2?.profitRate || null, body.step2?.shopScore || null, body.step2?.operationMonths || null,
+      body.step3?.companyName || null, body.step3?.creditCode || null, body.step3?.address || null, body.step3?.introduction || null, body.step3?.shopModel || null,
+      body.step6?.contactName || null, body.step6?.contactPhone || null, body.step6?.contactEmail || null, body.step6?.wechat || null, body.step6?.remark || null,
+      body.step7?.bankName || null, body.step7?.bankAccount || null, body.step7?.bankAddress || null, body.step7?.invoiceType || null, body.step7?.taxId || null, body.step7?.invoiceAddress || null, body.step7?.invoicePhone || null,
+      body.step9?.totalAmount || null, body.step9?.batchCount || null, body.step9?.batchAmount || null, body.step9?.firstAmount || null, body.step9?.subsequentAmount || null,
+      body.step9?.roiTarget || null, body.step9?.roiRecoveryDays || null, body.step9?.roiMaintainDays || null, body.step9?.profitShare || null, body.step9?.annualRate || null,
+      body.step9?.repaymentFrequency || null, body.step9?.repaymentRules || null
     ).run();
     
     const projectId = projectResult.meta.last_row_id;
@@ -216,7 +216,7 @@ app.post('/api/projects', authMiddleware, async (c) => {
         await DB.prepare(`
           INSERT INTO legal_representatives (project_id, entity_type, name, id_type, id_number, address, email, phone)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(projectId, rep.entityType, rep.name, rep.idType, rep.idNumber, rep.address, rep.email, rep.phone).run();
+        `).bind(projectId, rep.entityType || null, rep.name || null, rep.idType || null, rep.idNumber || null, rep.address || null, rep.email || null, rep.phone || null).run();
       }
     }
     
@@ -226,7 +226,7 @@ app.post('/api/projects', authMiddleware, async (c) => {
         await DB.prepare(`
           INSERT INTO actual_controllers (project_id, name, id_type, id_number, address, email, phone, shareholding)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).bind(projectId, controller.name, controller.idType, controller.idNumber, controller.address, controller.email, controller.phone, controller.shareholding).run();
+        `).bind(projectId, controller.name || null, controller.idType || null, controller.idNumber || null, controller.address || null, controller.email || null, controller.phone || null, controller.shareholding || null).run();
       }
     }
     
@@ -236,7 +236,7 @@ app.post('/api/projects', authMiddleware, async (c) => {
         await DB.prepare(`
           INSERT INTO platform_accounts (project_id, platform_name, account_description, has_qianchuan, remark)
           VALUES (?, ?, ?, ?, ?)
-        `).bind(projectId, account.platformName, account.accountDescription, account.hasQianchuan, account.remark).run();
+        `).bind(projectId, account.platformName || null, account.accountDescription || null, account.hasQianchuan || null, account.remark || null).run();
       }
     }
     
