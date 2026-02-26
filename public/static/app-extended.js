@@ -48,7 +48,22 @@ function renderScoringConfigPage() {
       <div class="max-w-7xl mx-auto px-4 py-8">
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 class="text-lg font-semibold mb-4">品类选择</h2>
-          <div id="category-tabs" class="flex space-x-2 overflow-x-auto pb-2">
+          
+          <!-- 搜索框 -->
+          <div class="mb-4">
+            <div class="relative">
+              <input 
+                type="text" 
+                id="category-search"
+                placeholder="搜索品类（支持拼音首字母）..."
+                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                oninput="filterCategories(this.value)"
+              >
+              <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+            </div>
+          </div>
+          
+          <div id="category-tabs" class="flex flex-wrap gap-2">
             <!-- 品类标签将动态加载 -->
           </div>
         </div>
@@ -80,28 +95,70 @@ function renderScoringConfigPage() {
 
 let currentCategory = '女装';
 let configData = {};
+let allCategories = [];
+
+// 拼音首字母映射表（常见电商品类）
+const pinyinMap = {
+  '女装': 'nz', '男装': 'nz', '内衣': 'ny', '童装': 'tz', '鞋靴': 'xx', '箱包': 'xb', '配饰': 'ps', 
+  '运动服饰': 'ydfs', '制服工装': 'zfgz', '美妆': 'mz', '个人护理': 'grhl', '彩妆香水': 'czxs', 
+  '美容仪器': 'mryq', '食品': 'sp', '酒类': 'jl', '生鲜': 'sx', '茶叶': 'cy', '保健食品': 'bjsp', 
+  '滋补品': 'zbp', '家居家纺': 'jjjf', '家装建材': 'jzjc', '厨房用品': 'cfyp', '日用百货': 'rybh', 
+  '家庭清洁': 'jtqj', '卫浴用品': 'wyyp', '家具': 'jj', '灯具照明': 'djzm', '家用电器': 'jydq', 
+  '厨房电器': 'cfdq', '手机数码': 'sjsm', '电脑办公': 'dnbg', '智能设备': 'znsb', '影音娱乐': 'yyyl', 
+  '母婴用品': 'myyp', '玩具乐器': 'wjlq', '童车童床': 'tctc', '营养辅食': 'yyfs', '运动户外': 'ydhw', 
+  '健身器材': 'jsqc', '户外装备': 'hwzb', '汽车用品': 'qcyp', '汽车配件': 'qcpj', '珠宝首饰': 'zbss', 
+  '钟表眼镜': 'zbyj', '图书音像': 'tsyx', '文具办公': 'wjbg', '乐器': 'lq', '其他': 'qt'
+};
 
 async function loadScoringConfig() {
   try {
     const response = await API_EXTENDED.getScoringConfig();
     configData = response.data;
+    allCategories = Object.keys(configData);
     
-    // 渲染品类标签
-    const categories = Object.keys(configData);
-    const tabsContainer = document.getElementById('category-tabs');
-    tabsContainer.innerHTML = categories.map(cat => `
-      <button 
-        onclick="switchCategory('${cat}')" 
-        class="px-4 py-2 rounded ${cat === currentCategory ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
-      >
-        ${cat}
-      </button>
-    `).join('');
+    // 渲染所有品类标签
+    renderCategoryTabs(allCategories);
     
     // 渲染当前品类的配置
     renderConfigFields();
   } catch (error) {
     showAlert('加载评分配置失败: ' + error.message, 'error');
+  }
+}
+
+function renderCategoryTabs(categories) {
+  const tabsContainer = document.getElementById('category-tabs');
+  tabsContainer.innerHTML = categories.map(cat => `
+    <button 
+      onclick="switchCategory('${cat}')" 
+      class="px-4 py-2 rounded transition ${cat === currentCategory ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+      data-category="${cat}"
+    >
+      ${cat}
+    </button>
+  `).join('');
+}
+
+function filterCategories(searchText) {
+  if (!searchText.trim()) {
+    renderCategoryTabs(allCategories);
+    return;
+  }
+  
+  const search = searchText.toLowerCase().trim();
+  const filtered = allCategories.filter(cat => {
+    // 支持中文和拼音首字母搜索
+    const catLower = cat.toLowerCase();
+    const pinyin = pinyinMap[cat] || '';
+    return catLower.includes(search) || pinyin.includes(search);
+  });
+  
+  renderCategoryTabs(filtered);
+  
+  if (filtered.length === 0) {
+    document.getElementById('category-tabs').innerHTML = `
+      <div class="text-center text-gray-500 py-4 w-full">未找到匹配的品类</div>
+    `;
   }
 }
 
