@@ -222,7 +222,7 @@ function renderMainContent() {
             max="30" 
             required 
             value="${(INVESTMENT_STATE.profitShareRatio * 100).toFixed(2)}"
-            oninput="calculateInvestmentPlan()"
+            oninput="handleProfitShareRatioChange()"
             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
             placeholder="15"
           >
@@ -247,7 +247,8 @@ function renderMainContent() {
             min="5000" 
             required 
             value="${INVESTMENT_STATE.currentPlan.investmentAmount || ''}"
-            oninput="calculateInvestmentPlan()"
+            oninput="validateAndCalculateInvestment()"
+            onblur="validateInvestmentAmount()"
             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
             placeholder="100000"
           >
@@ -260,6 +261,10 @@ function renderMainContent() {
               <i class="fas fa-arrow-up mr-1 text-green-500"></i>
               <strong>最高联营金额：¥<span id="maxInvestmentDisplay">--</span></strong>
               <span class="text-xs text-gray-500 ml-1">(平均每日净成交 × 分成比例 × 60天)</span>
+            </p>
+            <p id="investmentAmountError" class="text-sm text-red-600" style="display:none">
+              <i class="fas fa-exclamation-triangle mr-1"></i>
+              <span id="investmentAmountErrorText"></span>
             </p>
           </div>
         </div>
@@ -419,6 +424,89 @@ window.handleReuploadData = function() {
     INVESTMENT_STATE.averageRevenue = 0;
     renderInvestmentPlanPage(INVESTMENT_STATE.projectId);
   }
+};
+
+// 处理分成比例变化
+window.handleProfitShareRatioChange = function() {
+  // 先计算新的最高金额
+  calculateInvestmentPlan();
+  
+  // 然后重新验证投资金额
+  const investmentInput = document.getElementById('investmentAmount');
+  if (investmentInput && investmentInput.value) {
+    validateAndCalculateInvestment();
+  }
+};
+
+// 验证并计算投资金额（输入时调用）
+window.validateAndCalculateInvestment = function() {
+  const investmentInput = document.getElementById('investmentAmount');
+  const errorDisplay = document.getElementById('investmentAmountError');
+  const errorText = document.getElementById('investmentAmountErrorText');
+  
+  const investmentAmount = parseFloat(investmentInput.value);
+  
+  // 如果输入为空或无效，隐藏错误提示，但不阻止输入
+  if (!investmentAmount || isNaN(investmentAmount)) {
+    errorDisplay.style.display = 'none';
+    calculateInvestmentPlan();
+    return;
+  }
+  
+  const minInvestment = 5000;
+  const maxInvestment = INVESTMENT_STATE.maxInvestment || Infinity;
+  
+  // 检查是否超出范围
+  if (investmentAmount < minInvestment) {
+    errorDisplay.style.display = 'block';
+    errorText.textContent = `投资金额不能低于最低联营金额 ¥${minInvestment.toLocaleString()}`;
+    investmentInput.classList.add('border-red-500');
+    investmentInput.classList.remove('border-gray-300');
+  } else if (maxInvestment !== Infinity && investmentAmount > maxInvestment) {
+    errorDisplay.style.display = 'block';
+    errorText.textContent = `投资金额不能超过最高联营金额 ¥${maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    investmentInput.classList.add('border-red-500');
+    investmentInput.classList.remove('border-gray-300');
+  } else {
+    errorDisplay.style.display = 'none';
+    investmentInput.classList.remove('border-red-500');
+    investmentInput.classList.add('border-gray-300');
+  }
+  
+  // 继续计算
+  calculateInvestmentPlan();
+};
+
+// 验证投资金额（失去焦点时调用，自动修正）
+window.validateInvestmentAmount = function() {
+  const investmentInput = document.getElementById('investmentAmount');
+  const errorDisplay = document.getElementById('investmentAmountError');
+  
+  let investmentAmount = parseFloat(investmentInput.value);
+  
+  if (!investmentAmount || isNaN(investmentAmount)) {
+    return;
+  }
+  
+  const minInvestment = 5000;
+  const maxInvestment = INVESTMENT_STATE.maxInvestment || Infinity;
+  
+  // 自动修正到合法范围
+  if (investmentAmount < minInvestment) {
+    investmentInput.value = minInvestment;
+    showAlert(`投资金额已自动调整为最低金额 ¥${minInvestment.toLocaleString()}`, 'warning');
+  } else if (maxInvestment !== Infinity && investmentAmount > maxInvestment) {
+    investmentInput.value = Math.floor(maxInvestment);
+    showAlert(`投资金额已自动调整为最高金额 ¥${Math.floor(maxInvestment).toLocaleString()}`, 'warning');
+  }
+  
+  // 隐藏错误提示
+  errorDisplay.style.display = 'none';
+  investmentInput.classList.remove('border-red-500');
+  investmentInput.classList.add('border-gray-300');
+  
+  // 重新计算
+  calculateInvestmentPlan();
 };
 
 // 计算投资方案
@@ -801,7 +889,21 @@ window.saveListingDraft = async function() {
     const profitShareRatio = parseFloat(document.getElementById('profitShareRatio')?.value);
     const paymentFrequency = document.getElementById('paymentFrequency')?.value || 'daily';
     
-    if (investmentAmount && profitShareRatio && investmentAmount >= 10000) {
+    if (investmentAmount && profitShareRatio) {
+      // 验证投资金额范围
+      const minInvestment = 5000;
+      const maxInvestment = INVESTMENT_STATE.maxInvestment;
+      
+      if (investmentAmount < minInvestment) {
+        showAlert(`投资金额不能低于最低联营金额 ¥${minInvestment.toLocaleString()}`, 'error');
+        return;
+      }
+      
+      if (maxInvestment && investmentAmount > maxInvestment) {
+        showAlert(`投资金额不能超过最高联营金额 ¥${maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'error');
+        return;
+      }
+      
       const investmentData = {
         investment_amount: investmentAmount,
         profit_share_ratio: profitShareRatio / 100, // 转换为小数
