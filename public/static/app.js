@@ -715,6 +715,9 @@ async function renderAdminDashboard() {
           <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-2xl font-bold"><i class="fas fa-shield-alt mr-2"></i>后台管理系统</h1>
             <div class="flex space-x-4">
+              <button onclick="Router.navigate('/admin/thresholds')" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg">
+                <i class="fas fa-database mr-2"></i>阈值配置
+              </button>
               <button onclick="renderScoringConfigPage()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg">
                 <i class="fas fa-sliders-h mr-2"></i>评分配置
               </button>
@@ -1143,6 +1146,105 @@ window.handleDeleteProject = async function(id) {
   }
 };
 
+// 阈值配置页面
+async function renderThresholdsPage() {
+  if (!checkAuth()) {
+    Router.navigate('/admin/login');
+    return;
+  }
+  
+  try {
+    // 获取类目树
+    const treeResponse = await axios.get('/api/sieve/categories/tree');
+    const categoryTree = treeResponse.data.data || [];
+    
+    document.getElementById('app').innerHTML = `
+      <div class="min-h-screen bg-gray-100">
+        <nav class="bg-gray-800 text-white">
+          <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold"><i class="fas fa-database mr-2"></i>阈值配置管理</h1>
+            <div class="flex space-x-4">
+              <button onclick="Router.navigate('/admin')" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg">
+                <i class="fas fa-arrow-left mr-2"></i>返回项目列表
+              </button>
+              <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg">
+                <i class="fas fa-sign-out-alt mr-2"></i>退出
+              </button>
+            </div>
+          </div>
+        </nav>
+        
+        <div class="max-w-7xl mx-auto px-4 py-8">
+          <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">
+              <i class="fas fa-filter mr-2 text-purple-600"></i>
+              筛子系统阈值配置
+            </h2>
+            <p class="text-gray-600 mb-4">
+              系统当前共有 <span class="font-bold text-blue-600">${categoryTree.length}</span> 个主营类目，
+              <span class="font-bold text-green-600">1,487</span> 条阈值记录
+            </p>
+          </div>
+          
+          <div class="bg-white rounded-lg shadow-lg p-6">
+            <h3 class="text-xl font-bold mb-4">类目阈值总览</h3>
+            <div class="space-y-4" id="thresholds-list">
+              <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-4xl mb-2"></i>
+                <p>加载中...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // 异步加载阈值数据
+    loadThresholdsData(categoryTree);
+  } catch (error) {
+    showAlert(error.message, 'error');
+  }
+}
+
+async function loadThresholdsData(categoryTree) {
+  try {
+    const listEl = document.getElementById('thresholds-list');
+    
+    // 展示主营类目
+    listEl.innerHTML = categoryTree.map(mainCat => `
+      <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <h4 class="font-bold text-lg text-gray-800">
+              <i class="fas fa-folder text-yellow-600 mr-2"></i>
+              ${mainCat.label}
+            </h4>
+            <p class="text-sm text-gray-600 mt-1">
+              一级类目：${mainCat.children ? mainCat.children.length : 0} 个 | 
+              二级类目：${mainCat.children ? mainCat.children.reduce((sum, l1) => sum + (l1.children ? l1.children.length : 0), 0) : 0} 个
+            </p>
+          </div>
+          <button onclick="viewCategoryThresholds('${mainCat.value}')" 
+                  class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <i class="fas fa-eye mr-2"></i>查看详情
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (error) {
+    document.getElementById('thresholds-list').innerHTML = `
+      <div class="text-center py-8 text-red-600">
+        <i class="fas fa-exclamation-triangle text-4xl mb-2"></i>
+        <p>加载失败：${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+window.viewCategoryThresholds = async function(mainCategory) {
+  showAlert(`查看 ${mainCategory} 类目阈值详情（功能开发中）`, 'info');
+};
+
 // ==================== 路由注册 ====================
 Router.add('/', render10StepForm);
 Router.add('/login', renderLoginPage);
@@ -1150,6 +1252,7 @@ Router.add('/dashboard', renderDashboard);
 Router.add('/project/:id', renderProjectDetail);
 Router.add('/admin/login', renderAdminLoginPage);
 Router.add('/admin', renderAdminDashboard);
+Router.add('/admin/thresholds', renderThresholdsPage);
 // 注意：/admin/scoring-config 路由在 app-extended.js 中注册
 
 // ==================== 全局函数导出 ====================

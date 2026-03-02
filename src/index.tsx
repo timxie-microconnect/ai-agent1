@@ -1580,6 +1580,29 @@ app.get('/admin', (c) => {
   `);
 });
 
+// 阈值配置页面
+app.get('/admin/thresholds', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>阈值配置 - 管理员后台</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
+        <script src="/static/app.js"></script>
+        <script src="/static/app-extended.js"></script>
+    </body>
+    </html>
+  `);
+});
+
 // 挂载扩展管理员API
 app.route('/api/admin', adminExtendedApi);
 
