@@ -72,20 +72,20 @@ app.get('/config', async (c) => {
 })
 
 // ==========================================
-// 3. 上传90天数据
+// 3. 上传90天数据（新路径：revenue-data）
 // ==========================================
-app.post('/projects/:id/daily-revenue', async (c) => {
+app.post('/projects/:id/revenue-data', async (c) => {
   try {
     const projectId = c.req.param('id')
     const db = c.env.DB
     const body = await c.req.json()
     
     // 验证数据格式
-    if (!body.data || !Array.isArray(body.data)) {
+    if (!body.revenueData || !Array.isArray(body.revenueData)) {
       return c.json({ success: false, error: '数据格式错误' }, 400)
     }
     
-    const data = body.data
+    const data = body.revenueData
     
     // 验证数据完整性
     if (data.length !== 90) {
@@ -209,7 +209,7 @@ app.post('/projects/:id/max-investment', async (c) => {
 })
 
 // ==========================================
-// 5. 创建投资方案（YITO封顶计算）
+// 5. 创建投资方案（YITO封顶计算 - 新逻辑）
 // ==========================================
 app.post('/projects/:id/investment-plan', async (c) => {
   try {
@@ -218,12 +218,33 @@ app.post('/projects/:id/investment-plan', async (c) => {
     const body = await c.req.json()
     
     // 验证必填字段
-    if (!body.investmentAmount || !body.paymentFrequency) {
+    if (!body.investmentAmount || !body.paymentFrequency || !body.profitShareRatio) {
       return c.json({ success: false, error: '缺少必填字段' }, 400)
     }
     
     const investmentAmount = parseFloat(body.investmentAmount)
     const paymentFrequency = body.paymentFrequency // 'daily', 'weekly', 'biweekly'
+    const profitShareRatio = parseFloat(body.profitShareRatio)
+    
+    // 获取项目的90天数据
+    const project = await db.prepare(`
+      SELECT daily_revenue_data FROM projects WHERE id = ?
+    `).bind(projectId).first()
+    
+    if (!project || !project.daily_revenue_data) {
+      return c.json({ success: false, error: '请先上传90天净成交数据' }, 400)
+    }
+    
+    // 计算平均净成交
+    const revenueData = JSON.parse(project.daily_revenue_data as string)
+    const amounts = revenueData.map((d: any) => d.amount)
+    const avgDailyRevenue = amounts.reduce((sum: number, a: number) => sum + a, 0) / amounts.length
+    
+    // 核心逻辑：每日回款 = 平均净成交 × 分成比例
+    const dailyRepayment = avgDailyRevenue * profitShareRatio
+    
+    // 核心逻辑：预计联营天数 = 联营资金总额 ÷ 每日回款
+    const estimatedDays = Math.ceil(investmentAmount / dailyRepayment)
     
     // 获取年化收益率配置
     const rateKey = `annual_rate_${paymentFrequency}`
@@ -236,26 +257,6 @@ app.post('/projects/:id/investment-plan', async (c) => {
     }
     
     const annualRate = parseFloat(rateConfig.config_value as string)
-    
-    // 获取联营天数
-    const project = await db.prepare(`
-      SELECT estimated_days, max_investment_amount FROM projects WHERE id = ?
-    `).bind(projectId).first()
-    
-    if (!project) {
-      return c.json({ success: false, error: '项目不存在' }, 404)
-    }
-    
-    const estimatedDays = project.estimated_days as number || 60
-    const maxInvestment = project.max_investment_amount as number || 0
-    
-    // 验证投资金额不超过最高可联营金额
-    if (investmentAmount > maxInvestment) {
-      return c.json({
-        success: false,
-        error: `联营资金总额不能超过最高可联营金额 ¥${maxInvestment.toLocaleString()}`
-      }, 400)
-    }
     
     // YITO封顶计算：总支付金额 = 联营资金总额 × (1 + 年化收益率 × 预计联营天数 / 360)
     const totalReturnAmount = investmentAmount * (1 + annualRate * estimatedDays / 360)
@@ -284,14 +285,20 @@ app.post('/projects/:id/investment-plan', async (c) => {
       UPDATE projects 
       SET investment_amount = ?,
           payment_frequency = ?,
+          profit_share_ratio = ?,
           annual_rate = ?,
+          estimated_days = ?,
+          daily_repayment = ?,
           total_return_amount = ?,
           investment_plan_created_at = datetime('now')
       WHERE id = ?
     `).bind(
       investmentAmount,
       paymentFrequency,
+      profitShareRatio,
       annualRate,
+      estimatedDays,
+      dailyRepayment,
       totalReturnAmount,
       projectId
     ).run()
@@ -301,6 +308,9 @@ app.post('/projects/:id/investment-plan', async (c) => {
       data: {
         investmentAmount: Math.round(investmentAmount * 100) / 100,
         paymentFrequency: paymentFrequency,
+        profitShareRatio: profitShareRatio,
+        avgDailyRevenue: Math.round(avgDailyRevenue * 100) / 100,
+        dailyRepayment: Math.round(dailyRepayment * 100) / 100,
         annualRate: annualRate,
         estimatedDays: estimatedDays,
         totalReturnAmount: Math.round(totalReturnAmount * 100) / 100,
@@ -326,12 +336,12 @@ app.get('/projects/:id/investment-plan', async (c) => {
         daily_revenue_data,
         daily_revenue_uploaded_at,
         daily_revenue_volatility,
-        max_investment_amount,
         investment_amount,
         profit_share_ratio,
         payment_frequency,
         annual_rate,
         estimated_days,
+        daily_repayment,
         total_return_amount,
         investment_plan_created_at
       FROM projects 
@@ -342,18 +352,24 @@ app.get('/projects/:id/investment-plan', async (c) => {
       return c.json({ success: false, error: '项目不存在' }, 404)
     }
     
+    // 如果有revenue_data，解析并返回
+    let revenueData = null
+    if (project.daily_revenue_data) {
+      revenueData = JSON.parse(project.daily_revenue_data as string)
+    }
+    
     return c.json({
       success: true,
       data: {
-        hasRevenueData: !!project.daily_revenue_data,
+        revenueData: revenueData,
         revenueDataUploadedAt: project.daily_revenue_uploaded_at,
         volatility: project.daily_revenue_volatility,
-        maxInvestmentAmount: project.max_investment_amount,
         investmentAmount: project.investment_amount,
-        profitShareRatio: project.profit_share_ratio,
-        paymentFrequency: project.payment_frequency,
+        profitShareRatio: project.profit_share_ratio || 0.15,
+        paymentFrequency: project.payment_frequency || 'daily',
         annualRate: project.annual_rate,
         estimatedDays: project.estimated_days,
+        dailyRepayment: project.daily_repayment,
         totalReturnAmount: project.total_return_amount,
         investmentPlanCreatedAt: project.investment_plan_created_at
       }
