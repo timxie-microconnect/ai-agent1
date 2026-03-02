@@ -213,14 +213,23 @@ app.post('/api/projects', authMiddleware, async (c) => {
     }
     
     // 获取筛子系统的四项指标 - 兼容多种命名方式
-    const netRoi = body.net_roi || body.step2?.netRoi || body.step2?.net_roi || null
-    const settleRoi = body.settle_roi || body.step2?.settleRoi || body.step2?.settle_roi || null
-    const settleRate = body.settle_rate || body.step2?.settleRate || body.step2?.settle_rate || null
-    const historySpend = body.history_spend || body.step2?.historySpend || body.step2?.history_spend || null
+    // 基础财务数据 - 确保格式正确
+    let netRoi = body.net_roi || body.step2?.netRoi || body.step2?.net_roi || null
+    let settleRoi = body.settle_roi || body.step2?.settleRoi || body.step2?.settle_roi || null
+    // settle_rate 确保是小数(0-1)，如果>1说明是百分比，需转换
+    let settleRate = body.settle_rate || body.step2?.settleRate || body.step2?.settle_rate || null
+    if (settleRate && parseFloat(settleRate) > 1) {
+      settleRate = parseFloat(settleRate) / 100 // 转换百分比为小数
+    }
+    let historySpend = body.history_spend || body.step2?.historySpend || body.step2?.history_spend || null
     
     // 获取90天净成交数据和波动率
     const dailyRevenueData = body.daily_revenue_data ? JSON.stringify(body.daily_revenue_data) : null
-    const dailyRevenueVolatility = body.daily_revenue_volatility || null
+    // 确保波动率是小数格式(0-1之间)，前端可能传百分比或小数
+    let dailyRevenueVolatility = body.daily_revenue_volatility ? parseFloat(body.daily_revenue_volatility) : null
+    if (dailyRevenueVolatility && dailyRevenueVolatility > 1) {
+      dailyRevenueVolatility = dailyRevenueVolatility / 100 // 转换百分比为小数
+    }
     
     // 准入检查（如果有筛子数据）
     let admissionResult = null
@@ -1786,15 +1795,52 @@ app.get('/apply-financing', (c) => {
                     return;
                 }
                 
+                // 读取并验证表单数据
+                const companyName = document.getElementById('company_name').value.trim();
+                const netRoi = parseFloat(document.getElementById('net_roi').value);
+                const settleRoi = parseFloat(document.getElementById('settle_roi').value);
+                let settleRate = parseFloat(document.getElementById('settle_rate').value);
+                const historySpend = parseInt(document.getElementById('history_spend').value);
+                
+                // 数据验证
+                if (!companyName) {
+                    alert('请填写企业名称');
+                    return;
+                }
+                if (isNaN(netRoi) || netRoi <= 0 || netRoi > 10) {
+                    alert('净成交ROI必须在0到10之间（例如1.8表示180%）');
+                    return;
+                }
+                if (isNaN(settleRoi) || settleRoi <= 0 || settleRoi > 10) {
+                    alert('14日结算ROI必须在0到10之间');
+                    return;
+                }
+                if (isNaN(settleRate) || settleRate < 0) {
+                    alert('订单结算率必须大于等于0');
+                    return;
+                }
+                // 如果结算率>1，说明用户输入的是百分比，需转换为小数
+                if (settleRate > 1) {
+                    if (settleRate > 100) {
+                        alert('订单结算率不能超过100%');
+                        return;
+                    }
+                    settleRate = settleRate / 100;
+                }
+                if (isNaN(historySpend) || historySpend < 0) {
+                    alert('历史消耗额必须大于等于0');
+                    return;
+                }
+                
                 const formData = {
-                    company_name: document.getElementById('company_name').value,
+                    company_name: companyName,
                     main_category: category.main,
                     level1_category: category.level1 || null,
                     level2_category: category.level2 || null,
-                    net_roi: parseFloat(document.getElementById('net_roi').value),
-                    settle_roi: parseFloat(document.getElementById('settle_roi').value),
-                    settle_rate: parseFloat(document.getElementById('settle_rate').value),
-                    history_spend: parseInt(document.getElementById('history_spend').value),
+                    net_roi: netRoi,
+                    settle_roi: settleRoi,
+                    settle_rate: settleRate,  // 已确保是0-1之间的小数
+                    history_spend: historySpend,
                     daily_revenue_data: JSON.parse(revenueDataJson),
                     daily_revenue_volatility: parseFloat(volatility)
                 };
