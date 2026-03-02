@@ -382,7 +382,9 @@ app.get('/projects/:id/investment-plan', async (c) => {
 export default app
 
 // ==========================================
-// 7. 保存/更新挂牌信息
+
+// ==========================================
+// 7. 保存/更新挂牌信息（修复版）
 // ==========================================
 app.post('/projects/:id/listing-info', async (c) => {
   try {
@@ -405,113 +407,48 @@ app.post('/projects/:id/listing-info', async (c) => {
     `).bind(projectId).first()
     
     const isSubmitted = body.is_submitted === true || body.is_submitted === 'true'
+    const now = new Date().toISOString()
+    
+    // 字段列表（业务字段）
+    const fields = [
+      'company_name', 'registration_number', 'registered_address', 'establishment_date',
+      'business_format', 'business_intro', 'business_scope',
+      'legal_rep_name', 'legal_rep_id_type', 'legal_rep_id_number',
+      'legal_rep_address', 'legal_rep_email', 'legal_rep_phone',
+      'actual_controller_name', 'actual_controller_id_type', 'actual_controller_id_number',
+      'actual_controller_address', 'actual_controller_email', 'actual_controller_phone',
+      'beneficial_owner_name', 'beneficial_owner_id_type', 'beneficial_owner_id_number',
+      'beneficial_owner_address', 'beneficial_owner_email', 'beneficial_owner_phone',
+      'condition_1', 'condition_1_note', 'condition_2', 'condition_2_note',
+      'condition_3', 'condition_4', 'condition_5',
+      'revenue_2026', 'revenue_2027', 'revenue_2028', 'revenue_2029',
+      'authorizer_name', 'authorizer_id_type', 'authorizer_id_number',
+      'authorizer_address', 'authorizer_email', 'authorizer_phone'
+    ]
     
     if (existing) {
       // 更新现有记录
+      const setClause = fields.map(f => `${f} = ?`).join(', ')
+      const values = fields.map(f => body[f] || null)
+      
       await db.prepare(`
         UPDATE listing_info 
-        SET company_name = ?,
-            registration_number = ?,
-            registered_address = ?,
-            establishment_date = ?,
-            business_format = ?,
-            business_intro = ?,
-            business_scope = ?,
-            legal_rep_name = ?,
-            legal_rep_id_type = ?,
-            legal_rep_id_number = ?,
-            legal_rep_address = ?,
-            legal_rep_email = ?,
-            legal_rep_phone = ?,
-            actual_controller_name = ?,
-            actual_controller_id_type = ?,
-            actual_controller_id_number = ?,
-            actual_controller_address = ?,
-            actual_controller_email = ?,
-            actual_controller_phone = ?,
-            beneficial_owner_name = ?,
-            beneficial_owner_id_type = ?,
-            beneficial_owner_id_number = ?,
-            beneficial_owner_address = ?,
-            beneficial_owner_email = ?,
-            beneficial_owner_phone = ?,
-            condition_1 = ?,
-            condition_1_note = ?,
-            condition_2 = ?,
-            condition_2_note = ?,
-            condition_3 = ?,
-            condition_4 = ?,
-            condition_5 = ?,
-            revenue_2026 = ?,
-            revenue_2027 = ?,
-            revenue_2028 = ?,
-            revenue_2029 = ?,
-            authorizer_name = ?,
-            authorizer_id_type = ?,
-            authorizer_id_number = ?,
-            authorizer_address = ?,
-            authorizer_email = ?,
-            authorizer_phone = ?,
+        SET ${setClause},
             is_submitted = ?,
             submitted_at = ?,
-            updated_at = datetime('now')
+            updated_at = ?
         WHERE project_id = ?
-      `).bind(
-        body.company_name, body.registration_number, body.registered_address, body.establishment_date,
-        body.business_format, body.business_intro, body.business_scope,
-        body.legal_rep_name, body.legal_rep_id_type, body.legal_rep_id_number,
-        body.legal_rep_address, body.legal_rep_email, body.legal_rep_phone,
-        body.actual_controller_name, body.actual_controller_id_type, body.actual_controller_id_number,
-        body.actual_controller_address, body.actual_controller_email, body.actual_controller_phone,
-        body.beneficial_owner_name, body.beneficial_owner_id_type, body.beneficial_owner_id_number,
-        body.beneficial_owner_address, body.beneficial_owner_email, body.beneficial_owner_phone,
-        body.condition_1, body.condition_1_note, body.condition_2, body.condition_2_note,
-        body.condition_3, body.condition_4, body.condition_5,
-        body.revenue_2026, body.revenue_2027, body.revenue_2028, body.revenue_2029,
-        body.authorizer_name, body.authorizer_id_type, body.authorizer_id_number,
-        body.authorizer_address, body.authorizer_email, body.authorizer_phone,
-        isSubmitted ? 1 : 0,
-        isSubmitted ? new Date().toISOString() : null,
-        projectId
-      ).run()
+      `).bind(...values, isSubmitted ? 1 : 0, isSubmitted ? now : null, now, projectId).run()
     } else {
       // 插入新记录
+      const columns = ['project_id', ...fields, 'is_submitted', 'submitted_at']
+      const placeholders = columns.map(() => '?').join(', ')
+      const values = [projectId, ...fields.map(f => body[f] || null), isSubmitted ? 1 : 0, isSubmitted ? now : null]
+      
       await db.prepare(`
-        INSERT INTO listing_info (
-          project_id, company_name, registration_number, registered_address, establishment_date,
-          business_format, business_intro, business_scope,
-          legal_rep_name, legal_rep_id_type, legal_rep_id_number, legal_rep_address, legal_rep_email, legal_rep_phone,
-          actual_controller_name, actual_controller_id_type, actual_controller_id_number,
-          actual_controller_address, actual_controller_email, actual_controller_phone,
-          beneficial_owner_name, beneficial_owner_id_type, beneficial_owner_id_number,
-          beneficial_owner_address, beneficial_owner_email, beneficial_owner_phone,
-          condition_1, condition_1_note, condition_2, condition_2_note,
-          condition_3, condition_4, condition_5,
-          revenue_2026, revenue_2027, revenue_2028, revenue_2029,
-          authorizer_name, authorizer_id_type, authorizer_id_number, authorizer_address, authorizer_email, authorizer_phone,
-          is_submitted, submitted_at
-        ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-        )
-      `).bind(
-        projectId,
-        body.company_name, body.registration_number, body.registered_address, body.establishment_date,
-        body.business_format, body.business_intro, body.business_scope,
-        body.legal_rep_name, body.legal_rep_id_type, body.legal_rep_id_number,
-        body.legal_rep_address, body.legal_rep_email, body.legal_rep_phone,
-        body.actual_controller_name, body.actual_controller_id_type, body.actual_controller_id_number,
-        body.actual_controller_address, body.actual_controller_email, body.actual_controller_phone,
-        body.beneficial_owner_name, body.beneficial_owner_id_type, body.beneficial_owner_id_number,
-        body.beneficial_owner_address, body.beneficial_owner_email, body.beneficial_owner_phone,
-        body.condition_1, body.condition_1_note, body.condition_2, body.condition_2_note,
-        body.condition_3, body.condition_4, body.condition_5,
-        body.revenue_2026, body.revenue_2027, body.revenue_2028, body.revenue_2029,
-        body.authorizer_name, body.authorizer_id_type, body.authorizer_id_number,
-        body.authorizer_address, body.authorizer_email, body.authorizer_phone,
-        isSubmitted ? 1 : 0,
-        isSubmitted ? new Date().toISOString() : null
-      ).run()
+        INSERT INTO listing_info (${columns.join(', ')})
+        VALUES (${placeholders})
+      `).bind(...values).run()
     }
     
     return c.json({
@@ -519,6 +456,7 @@ app.post('/projects/:id/listing-info', async (c) => {
       message: isSubmitted ? '挂牌信息提交成功' : '草稿保存成功'
     })
   } catch (error: any) {
+    console.error('保存挂牌信息失败:', error)
     return c.json({ success: false, error: error.message }, 500)
   }
 })

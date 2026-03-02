@@ -203,7 +203,7 @@ function renderMainContent() {
       投资方案计算器（YITO封顶模型）
     </h2>
     
-    <form onsubmit="handleSaveInvestmentPlan(event)" class="space-y-6">
+    <div class="space-y-6">
       <!-- 输入参数 -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- 分成比例 -->
@@ -346,13 +346,7 @@ function renderMainContent() {
         </div>
       </div>
       
-      <!-- 保存投资方案按钮 -->
-      <div class="flex gap-4 mt-8">
-        <button type="submit" class="flex-1 px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 font-bold text-lg shadow-xl transform hover:scale-105 transition">
-          <i class="fas fa-save mr-2"></i>保存投资方案
-        </button>
-      </div>
-    </form>
+    </div>
     
     <!-- 挂牌信息收集表单 -->
     ${renderListingInfoForm()}
@@ -778,11 +772,30 @@ window.toggleConditionNote = function(conditionName) {
   }
 };
 
-// 保存草稿
+// 保存草稿（同时保存投资方案和挂牌信息）
 window.saveListingDraft = async function() {
   try {
-    const formData = collectFormData();
+    // 1. 保存投资方案数据
+    const investmentAmount = parseFloat(document.getElementById('investmentAmount')?.value);
+    const profitShareRatio = parseFloat(document.getElementById('profitShareRatio')?.value);
+    const paymentFrequency = document.getElementById('paymentFrequency')?.value || 'daily';
     
+    if (investmentAmount && profitShareRatio && investmentAmount >= 10000) {
+      const investmentData = {
+        investment_amount: investmentAmount,
+        profit_share_ratio: profitShareRatio / 100, // 转换为小数
+        repayment_frequency: paymentFrequency
+      };
+      
+      await axios.post(
+        `/api/investment/projects/${INVESTMENT_STATE.projectId}/investment-plan`,
+        investmentData,
+        { headers: { 'Authorization': `Bearer ${STATE.token}` } }
+      );
+    }
+    
+    // 2. 保存挂牌信息
+    const formData = collectFormData();
     const response = await axios.post(
       `/api/investment/projects/${INVESTMENT_STATE.projectId}/listing-info`, 
       formData,
@@ -790,14 +803,18 @@ window.saveListingDraft = async function() {
     );
     
     if (response.data.success) {
-      showAlert('草稿保存成功！', 'success');
+      showAlert('所有信息保存成功！', 'success');
       LISTING_STATE.isDirty = false;
+      // 重新加载数据
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } else {
       throw new Error(response.data.error);
     }
   } catch (error) {
-    console.error('保存草稿失败:', error);
-    showAlert('保存失败: ' + error.message, 'error');
+    console.error('保存失败:', error);
+    showAlert('保存失败: ' + (error.response?.data?.error || error.message), 'error');
   }
 };
 
