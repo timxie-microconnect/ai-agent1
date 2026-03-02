@@ -2170,6 +2170,7 @@ app.get('/test-deployment.html', (c) => {
 
 // 投资方案设计页面
 app.get('/investment-plan/:id', (c) => {
+  const projectId = c.req.param('id');
   return c.html(`
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -2183,7 +2184,28 @@ app.get('/investment-plan/:id', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-        <script src="/static/investment-plan.js"></script>
+        <script src="/static/app.js?v=20260302"></script>
+        <script src="/static/investment-plan.js?v=20260302"></script>
+        <script>
+          // 页面加载后初始化
+          document.addEventListener('DOMContentLoaded', function() {
+            // 从localStorage恢复登录状态
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            if (token && user) {
+              STATE.token = token;
+              STATE.user = JSON.parse(user);
+            }
+            
+            // 渲染投资方案页面
+            if (typeof renderInvestmentPlanPage === 'function') {
+              renderInvestmentPlanPage(${projectId});
+            } else {
+              console.error('renderInvestmentPlanPage function not found');
+              alert('投资方案页面加载失败，请刷新重试');
+            }
+          });
+        </script>
     </body>
     </html>
   `);
