@@ -523,7 +523,7 @@ app.post('/scoring/calculate/:projectId', async (c) => {
         actual_value: project.daily_revenue_volatility,
         threshold_value: thresholdsResult.volatility_max || 0.15,
         actual_display: `${((project.daily_revenue_volatility as number || 0) * 100).toFixed(2)}%`,
-        threshold_display: `≤${((thresholdsResult.volatility_max as number || 0.15) * 100).toFixed(2)}%`,
+        threshold_display: `≤${((thresholdsResult.volatility_max as number || 0.15) * 100).toFixed(0)}%`,
         uplift: scoringResult.volatility_uplift,
         base_score: scoringResult.volatility_score,
         weight: scoringRule.weight_volatility / 100,

@@ -218,6 +218,10 @@ app.post('/api/projects', authMiddleware, async (c) => {
     const settleRate = body.settle_rate || body.step2?.settleRate || body.step2?.settle_rate || null
     const historySpend = body.history_spend || body.step2?.historySpend || body.step2?.history_spend || null
     
+    // 获取90天净成交数据和波动率
+    const dailyRevenueData = body.daily_revenue_data ? JSON.stringify(body.daily_revenue_data) : null
+    const dailyRevenueVolatility = body.daily_revenue_volatility || null
+    
     // 准入检查（如果有筛子数据）
     let admissionResult = null
     let admissionDetails = null
@@ -306,8 +310,9 @@ app.post('/api/projects', authMiddleware, async (c) => {
         repayment_frequency, repayment_rules,
         main_category, level1_category, level2_category, 
         net_roi, settle_roi, settle_rate, history_spend,
+        daily_revenue_data, daily_revenue_volatility, daily_revenue_uploaded_at,
         admission_result, admission_details
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       user.userId, submissionCode, 'pending',
       body.step1?.isSameEntity || null, body.step1?.hasIncomeSharing || null, body.step1?.relationshipType || null, body.step1?.fundUsage || null,
@@ -322,6 +327,7 @@ app.post('/api/projects', authMiddleware, async (c) => {
       body.step9?.repaymentFrequency || null, body.step9?.repaymentRules || null,
       categoryData.main || null, categoryData.level1 || null, categoryData.level2 || null,
       netRoi, settleRoi, settleRate, historySpend,
+      dailyRevenueData, dailyRevenueVolatility, dailyRevenueData ? new Date().toISOString() : null,
       admissionResult, admissionDetails
     ).run();
     
@@ -873,6 +879,260 @@ app.get('/api/files/download/:fileName', async (c) => {
 
 // ==================== 前端路由 ====================
 
+// 融资方Dashboard
+app.get('/dashboard', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>我的项目 - 滴灌投资</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <div class="min-h-screen">
+            <!-- 顶部导航 -->
+            <div class="bg-white shadow">
+                <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-seedling text-blue-600 text-2xl"></i>
+                        <h1 class="text-xl font-bold text-gray-800">我的项目</h1>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span id="user-info" class="text-sm text-gray-600"></span>
+                        <button onclick="logout()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                            <i class="fas fa-sign-out-alt mr-1"></i>退出
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主内容 -->
+            <div class="max-w-7xl mx-auto px-4 py-8">
+                <!-- 操作栏 -->
+                <div class="mb-6 flex items-center justify-between">
+                    <div class="flex gap-3">
+                        <button onclick="window.location.href='/apply-financing'" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-plus mr-2"></i>新建项目
+                        </button>
+                        <button onclick="loadProjects()" 
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                            <i class="fas fa-refresh mr-2"></i>刷新
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 项目列表 -->
+                <div id="projects-container" class="space-y-4">
+                    <div class="text-center py-12">
+                        <i class="fas fa-spinner fa-spin text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-500">加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            // 获取用户信息
+            async function checkAuth() {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    window.location.href = '/login';
+                    return null;
+                }
+                
+                try {
+                    const response = await axios.get('/api/user/info', {
+                        headers: { 'Authorization': token }
+                    });
+                    
+                    if (response.data.username) {
+                        document.getElementById('user-info').textContent = '欢迎，' + response.data.username;
+                        return token;
+                    } else {
+                        throw new Error('Invalid session');
+                    }
+                } catch (error) {
+                    console.error('认证失败:', error);
+                    localStorage.removeItem('token');
+                    window.location.href = '/login';
+                    return null;
+                }
+            }
+
+            // 加载项目列表
+            async function loadProjects() {
+                const token = await checkAuth();
+                if (!token) return;
+
+                const container = document.getElementById('projects-container');
+                
+                try {
+                    const response = await axios.get('/api/projects', {
+                        headers: { 'Authorization': token }
+                    });
+
+                    const projects = response.data;
+                    
+                    if (projects.length === 0) {
+                        container.innerHTML = \`
+                            <div class="bg-white rounded-lg shadow p-12 text-center">
+                                <i class="fas fa-folder-open text-6xl text-gray-300 mb-4"></i>
+                                <h3 class="text-xl font-bold text-gray-700 mb-2">还没有项目</h3>
+                                <p class="text-gray-500 mb-6">点击"新建项目"开始申请融资</p>
+                                <button onclick="window.location.href='/apply-financing'" 
+                                        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    <i class="fas fa-plus mr-2"></i>新建项目
+                                </button>
+                            </div>
+                        \`;
+                        return;
+                    }
+
+                    container.innerHTML = projects.map(project => {
+                        const statusConfig = getStatusConfig(project.status);
+                        const canProceed = project.status === 'approved' && project.sieve_score >= 60;
+                        
+                        return \`
+                            <div class="bg-white rounded-lg shadow hover:shadow-lg transition p-6">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="flex-1">
+                                        <h3 class="text-xl font-bold text-gray-800 mb-2">
+                                            \${project.company_name}
+                                        </h3>
+                                        <div class="flex items-center gap-3 text-sm text-gray-600">
+                                            <span><i class="fas fa-tag mr-1"></i>\${project.main_category}</span>
+                                            <span><i class="fas fa-calendar mr-1"></i>\${new Date(project.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="px-4 py-2 \${statusConfig.bgClass} \${statusConfig.textClass} rounded-full text-sm font-semibold">
+                                            \${statusConfig.icon} \${statusConfig.text}
+                                        </div>
+                                        \${project.sieve_score ? \`
+                                            <div class="mt-2 text-2xl font-bold \${project.sieve_score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                                                \${project.sieve_score.toFixed(1)}分
+                                            </div>
+                                        \` : ''}
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+                                    <div>
+                                        <div class="text-gray-500">净成交ROI</div>
+                                        <div class="font-bold text-gray-900">\${(project.net_roi * 100).toFixed(0)}%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">14日结算ROI</div>
+                                        <div class="font-bold text-gray-900">\${(project.settle_roi * 100).toFixed(0)}%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">14日订单结算率</div>
+                                        <div class="font-bold text-gray-900">\${project.settle_rate.toFixed(0)}%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500">波动率</div>
+                                        <div class="font-bold \${project.daily_revenue_volatility < 10 ? 'text-green-600' : 'text-orange-600'}">
+                                            \${project.daily_revenue_volatility ? project.daily_revenue_volatility.toFixed(2) + '%' : '-'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    \${canProceed ? \`
+                                        <button onclick="goToInvestmentPlan(\${project.id})" 
+                                                class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+                                            <i class="fas fa-arrow-right mr-2"></i>下一步：设计投资方案
+                                        </button>
+                                    \` : \`
+                                        <div class="flex-1 px-4 py-3 bg-gray-100 text-gray-500 rounded-lg text-center">
+                                            <i class="fas fa-clock mr-2"></i>
+                                            \${statusConfig.waitingText || '等待审核'}
+                                        </div>
+                                    \`}
+                                    <button onclick="viewDetails(\${project.id})" 
+                                            class="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                        <i class="fas fa-eye mr-2"></i>详情
+                                    </button>
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+
+                } catch (error) {
+                    console.error('加载项目失败:', error);
+                    container.innerHTML = \`
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                            <i class="fas fa-exclamation-circle text-red-600 text-4xl mb-3"></i>
+                            <p class="text-red-800 font-semibold">加载失败</p>
+                            <p class="text-red-600 text-sm mt-2">\${error.message}</p>
+                            <button onclick="loadProjects()" 
+                                    class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                                <i class="fas fa-refresh mr-2"></i>重试
+                            </button>
+                        </div>
+                    \`;
+                }
+            }
+
+            // 获取状态配置
+            function getStatusConfig(status) {
+                const configs = {
+                    'pending': {
+                        text: '待审核',
+                        bgClass: 'bg-yellow-100',
+                        textClass: 'text-yellow-800',
+                        icon: '⏳',
+                        waitingText: '等待管理员审核'
+                    },
+                    'approved': {
+                        text: '已通过',
+                        bgClass: 'bg-green-100',
+                        textClass: 'text-green-800',
+                        icon: '✅',
+                        waitingText: ''
+                    },
+                    'rejected': {
+                        text: '已拒绝',
+                        bgClass: 'bg-red-100',
+                        textClass: 'text-red-800',
+                        icon: '❌',
+                        waitingText: '审核未通过'
+                    }
+                };
+                return configs[status] || configs['pending'];
+            }
+
+            // 跳转到投资方案设计
+            function goToInvestmentPlan(projectId) {
+                window.location.href = \`/investment-plan/\${projectId}\`;
+            }
+
+            // 查看详情
+            function viewDetails(projectId) {
+                alert('查看项目详情功能开发中... 项目ID: ' + projectId);
+            }
+
+            // 退出登录
+            function logout() {
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+            }
+
+            // 页面加载时执行
+            window.addEventListener('DOMContentLoaded', () => {
+                loadProjects();
+            });
+        </script>
+    </body>
+    </html>
+  `);
+});
+
 // 导航首页
 app.get('/nav', (c) => {
   const html = `<!DOCTYPE html>
@@ -1378,6 +1638,35 @@ app.get('/apply-financing', (c) => {
                             </div>
                         </div>
                         
+                        <!-- 90天净成交数据上传 -->
+                        <div class="mt-6 border-t pt-6">
+                            <h3 class="text-lg font-bold text-gray-800 mb-3">
+                                <i class="fas fa-file-excel text-green-600 mr-2"></i>
+                                90天净成交数据 <span class="text-red-500">*</span>
+                            </h3>
+                            
+                            <div class="mb-4">
+                                <button type="button" onclick="downloadExcelTemplate()" 
+                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                    <i class="fas fa-download mr-2"></i>下载Excel模板
+                                </button>
+                                <span class="ml-3 text-sm text-gray-600">
+                                    模板包含最近90天日期，请填写每日净成交金额
+                                </span>
+                            </div>
+                            
+                            <div id="excel-upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition cursor-pointer">
+                                <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" class="hidden">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                                <p class="text-gray-600 mb-2">点击或拖拽Excel文件到此处上传</p>
+                                <p class="text-sm text-gray-500">支持 .xlsx, .xls, .csv 格式</p>
+                            </div>
+                            
+                            <div id="excel-upload-result" class="mt-4 hidden"></div>
+                            <input type="hidden" id="revenue_data_json">
+                            <input type="hidden" id="daily_revenue_volatility">
+                        </div>
+                        
                         <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                             <div class="flex items-start gap-2">
                                 <i class="fas fa-info-circle text-yellow-600 mt-0.5"></i>
@@ -1428,6 +1717,7 @@ app.get('/apply-financing', (c) => {
             // 页面加载时初始化
             document.addEventListener('DOMContentLoaded', async function() {
                 await window.SIEVE.init();
+                window.initExcelUpload();
                 console.log('✅ 筛子系统初始化完成');
             });
 
@@ -1451,6 +1741,15 @@ app.get('/apply-financing', (c) => {
                     return;
                 }
                 
+                // 检查90天数据
+                const revenueDataJson = document.getElementById('revenue_data_json').value;
+                const volatility = document.getElementById('daily_revenue_volatility').value;
+                
+                if (!revenueDataJson || !volatility) {
+                    alert('请上传90天净成交Excel数据');
+                    return;
+                }
+                
                 const formData = {
                     company_name: document.getElementById('company_name').value,
                     main_category: category.main,
@@ -1459,36 +1758,69 @@ app.get('/apply-financing', (c) => {
                     net_roi: parseFloat(document.getElementById('net_roi').value),
                     settle_roi: parseFloat(document.getElementById('settle_roi').value),
                     settle_rate: parseFloat(document.getElementById('settle_rate').value),
-                    history_spend: parseInt(document.getElementById('history_spend').value)
+                    history_spend: parseInt(document.getElementById('history_spend').value),
+                    daily_revenue_data: JSON.parse(revenueDataJson),
+                    daily_revenue_volatility: parseFloat(volatility)
                 };
                 
                 // 禁用按钮
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>检查中...';
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>提交中...';
                 
                 try {
-                    // 调用准入检查API
-                    const result = await window.SIEVE.checkAdmission(formData);
+                    // 获取用户token
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                        alert('请先登录');
+                        window.location.href = '/login';
+                        return;
+                    }
                     
-                    // 显示结果
-                    resultDiv.classList.remove('hidden');
-                    window.SIEVE.displayAdmissionResult(result);
+                    // 提交项目
+                    const response = await axios.post('/api/projects', formData, {
+                        headers: {
+                            'Authorization': token
+                        }
+                    });
                     
-                    // 滚动到结果
-                    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    
-                    // 如果通过准入，可以进一步操作
-                    if (result.data.admission_result === '可评分') {
-                        setTimeout(() => {
-                            if (confirm('恭喜通过准入审核！是否进入详细评分页面？')) {
-                                // 这里可以跳转到评分页面或者直接进行评分
-                                // window.location.href = '/scoring-detail?data=' + encodeURIComponent(JSON.stringify(formData));
-                            }
-                        }, 1500);
+                    if (response.data.success) {
+                        // 显示成功结果
+                        resultDiv.classList.remove('hidden');
+                        resultDiv.innerHTML = \`
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                                <div class="flex items-center gap-3 mb-4">
+                                    <i class="fas fa-check-circle text-green-600 text-3xl"></i>
+                                    <div>
+                                        <h3 class="text-xl font-bold text-green-900">提交成功！</h3>
+                                        <p class="text-green-700">您的申请已提交，等待管理员审核</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-2 text-sm text-gray-700">
+                                    <p><strong>项目ID：</strong>\${response.data.projectId}</p>
+                                    <p><strong>提交码：</strong>\${response.data.submissionCode}</p>
+                                </div>
+                                <div class="mt-4 flex gap-3">
+                                    <button onclick="window.location.href='/nav'" 
+                                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                        <i class="fas fa-home mr-2"></i>返回首页
+                                    </button>
+                                    <button onclick="window.location.href='/dashboard'" 
+                                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                        <i class="fas fa-list mr-2"></i>查看我的项目
+                                    </button>
+                                </div>
+                            </div>
+                        \`;
+                        
+                        // 滚动到结果
+                        resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        alert('提交失败：' + (response.data.error || '未知错误'));
                     }
                     
                 } catch (error) {
-                    alert('提交失败：' + error.message);
+                    console.error('提交失败:', error);
+                    alert('提交失败：' + (error.response?.data?.error || error.message));
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>提交申请';

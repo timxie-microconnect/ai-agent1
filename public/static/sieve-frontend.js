@@ -465,6 +465,174 @@ function showToast(message, type = 'info') {
   alert(message);
 }
 
+// ==================== Excel上传功能 ====================
+let revenueDataCache = null;
+let volatilityCache = null;
+
+// 下载Excel模板
+function downloadExcelTemplate() {
+  window.location.href = '/api/investment/template';
+}
+
+// 初始化Excel上传区域
+function initExcelUpload() {
+  const uploadArea = document.getElementById('excel-upload-area');
+  const fileInput = document.getElementById('excel-file-input');
+  const resultDiv = document.getElementById('excel-upload-result');
+  
+  if (!uploadArea || !fileInput) return;
+  
+  // 点击上传区域触发文件选择
+  uploadArea.addEventListener('click', () => {
+    fileInput.click();
+  });
+  
+  // 文件选择后处理
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      await handleExcelFile(file);
+    }
+  });
+  
+  // 拖拽上传
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('border-blue-500', 'bg-blue-50');
+  });
+  
+  uploadArea.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+  });
+  
+  uploadArea.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+    
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      fileInput.files = e.dataTransfer.files;
+      await handleExcelFile(file);
+    }
+  });
+}
+
+// 处理Excel文件
+async function handleExcelFile(file) {
+  const resultDiv = document.getElementById('excel-upload-result');
+  const uploadArea = document.getElementById('excel-upload-area');
+  
+  try {
+    // 显示加载状态
+    resultDiv.className = 'mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg';
+    resultDiv.classList.remove('hidden');
+    resultDiv.innerHTML = `
+      <div class="flex items-center gap-2">
+        <i class="fas fa-spinner fa-spin text-blue-600"></i>
+        <span class="text-blue-800">正在解析文件...</span>
+      </div>
+    `;
+    
+    // 解析CSV文件
+    const text = await file.text();
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      throw new Error('文件格式错误：数据行数不足');
+    }
+    
+    // 跳过标题行，解析数据
+    const data = [];
+    for (let i = 1; i < lines.length && data.length < 90; i++) {
+      const parts = lines[i].split(',');
+      if (parts.length >= 2) {
+        const date = parts[0].trim();
+        const amount = parseFloat(parts[1].trim());
+        
+        if (date && !isNaN(amount) && amount >= 0) {
+          data.push({ date, amount });
+        }
+      }
+    }
+    
+    if (data.length !== 90) {
+      throw new Error(`文件格式错误：需要90天数据，当前只有${data.length}天`);
+    }
+    
+    // 计算波动率
+    const amounts = data.map(d => d.amount);
+    const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+    const variance = amounts.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / amounts.length;
+    const stdDev = Math.sqrt(variance);
+    const volatility = stdDev / avg; // 保存为小数形式 (0.0795 表示 7.95%)
+    
+    // 缓存数据
+    revenueDataCache = data;
+    volatilityCache = volatility;
+    
+    // 存储到隐藏字段
+    document.getElementById('revenue_data_json').value = JSON.stringify(data);
+    document.getElementById('daily_revenue_volatility').value = volatility.toFixed(4); // 保存4位小数
+    
+    // 显示成功结果
+    resultDiv.className = 'mt-4 p-4 bg-green-50 border border-green-200 rounded-lg';
+    resultDiv.innerHTML = `
+      <div class="space-y-3">
+        <div class="flex items-center gap-2 text-green-800">
+          <i class="fas fa-check-circle text-green-600 text-xl"></i>
+          <span class="font-semibold">Excel文件解析成功</span>
+        </div>
+        <div class="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-gray-600">数据天数</div>
+            <div class="font-bold text-gray-900">${data.length}天</div>
+          </div>
+          <div>
+            <div class="text-gray-600">平均日净成交</div>
+            <div class="font-bold text-gray-900">¥${avg.toFixed(2)}</div>
+          </div>
+          <div>
+            <div class="text-gray-600">波动率</div>
+            <div class="font-bold ${volatility > 0.10 ? 'text-red-600' : 'text-green-600'}">
+              ${(volatility * 100).toFixed(2)}%
+            </div>
+          </div>
+        </div>
+        <div class="text-xs text-gray-600">
+          <i class="fas fa-info-circle mr-1"></i>
+          波动率越低表示经营越稳定，低于10%为优秀
+        </div>
+      </div>
+    `;
+    
+    // 更新上传区域显示
+    uploadArea.innerHTML = `
+      <i class="fas fa-file-excel text-4xl text-green-600 mb-3"></i>
+      <p class="text-green-600 font-semibold mb-2">✓ ${file.name}</p>
+      <p class="text-sm text-gray-500">点击可重新上传</p>
+    `;
+    
+  } catch (error) {
+    console.error('Excel解析错误:', error);
+    resultDiv.className = 'mt-4 p-4 bg-red-50 border border-red-200 rounded-lg';
+    resultDiv.innerHTML = `
+      <div class="flex items-center gap-2">
+        <i class="fas fa-exclamation-circle text-red-600"></i>
+        <span class="text-red-800 font-semibold">文件解析失败</span>
+      </div>
+      <p class="text-sm text-red-700 mt-2">${error.message}</p>
+      <p class="text-xs text-red-600 mt-2">请确保文件格式正确：第一列为日期，第二列为净成交金额</p>
+    `;
+    
+    // 清空缓存
+    revenueDataCache = null;
+    volatilityCache = null;
+    document.getElementById('revenue_data_json').value = '';
+    document.getElementById('daily_revenue_volatility').value = '';
+  }
+}
+
 // ==================== 导出 ====================
 if (typeof window !== 'undefined') {
   window.SIEVE = {
@@ -474,4 +642,9 @@ if (typeof window !== 'undefined') {
     displayScoringResult,
     STATE: SIEVE_STATE
   };
+  
+  // 导出Excel相关函数到全局
+  window.downloadExcelTemplate = downloadExcelTemplate;
+  window.initExcelUpload = initExcelUpload;
+  window.handleExcelFile = handleExcelFile;
 }
