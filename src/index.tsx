@@ -316,7 +316,7 @@ app.post('/api/projects', authMiddleware, async (c) => {
     `).bind(
       user.userId, submissionCode, 'pending',
       body.step1?.isSameEntity || null, body.step1?.hasIncomeSharing || null, body.step1?.relationshipType || null, body.step1?.fundUsage || null,
-      body.step2?.companyName || body.projectName || null, body.step2?.creditCode || null, body.step2?.address || null, body.step2?.establishedDate || null, body.step2?.industry || null,
+      body.company_name || body.step2?.companyName || body.projectName || null, body.step2?.creditCode || null, body.step2?.address || null, body.step2?.establishedDate || null, body.step2?.industry || null,
       body.step2?.introduction || null, body.step2?.businessScope || null, body.step2?.businessDescription || null,
       body.step2?.productCategory || null, body.step2?.roi || null, body.step2?.returnRate || null, body.step2?.profitRate || null, body.step2?.shopScore || null, body.step2?.operationMonths || null,
       body.step3?.companyName || null, body.step3?.creditCode || null, body.step3?.address || null, body.step3?.introduction || null, body.step3?.shopModel || null,
