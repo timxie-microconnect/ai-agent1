@@ -274,7 +274,7 @@ async function renderDashboard() {
           <h2 class="text-3xl font-bold mb-6">仪表盘</h2>
           
           <div class="grid md:grid-cols-2 gap-6 mb-8">
-            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white cursor-pointer hover:shadow-xl" onclick="Router.navigate('/')">
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white cursor-pointer hover:shadow-xl" onclick="Router.navigate('/apply-financing')">
               <i class="fas fa-plus-circle text-4xl mb-4"></i>
               <h3 class="text-xl font-bold mb-2">提交新项目</h3>
               <p class="text-blue-100">点击开始填写表单</p>
