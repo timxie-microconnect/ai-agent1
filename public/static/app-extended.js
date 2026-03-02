@@ -198,14 +198,94 @@ function renderScoringConfigPage() {
           </div>
 
           <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p class="text-sm text-gray-700">
+            <p class="text-sm text-gray-700 mb-2">
               <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
-              <strong>k值说明：</strong>k值越大，边际递减越明显。例如k=4时，超出阈值25%可得到约52分，超出50%可得到约70分。
+              <strong>k值详细说明：</strong>
             </p>
+            <div class="text-xs text-gray-600 space-y-1 ml-6">
+              <p>• k值控制"边际递减"的速度，即超出阈值越多，每多1%的提升带来的分数增长越少</p>
+              <p>• <strong>k值越大</strong> → 边际递减越快 → 鼓励达标即可，不过度追求极限值</p>
+              <p>• <strong>k值越小</strong> → 边际递减越慢 → 鼓励持续提升，高表现获得更高分数</p>
+              <p>• <strong>实例（k=4时）</strong>：超阈值25%得52分，超50%得70分，超100%得86分</p>
+              <p>• <strong>实例（k=2时）</strong>：超阈值25%得39分，超50%得63分，超100%得86分</p>
+              <p>• <strong>建议</strong>：重要指标用较大k值（4-6），次要指标用较小k值（1-3）</p>
+            </div>
           </div>
         </div>
 
         <!-- 保存按钮 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-xl font-bold mb-6 flex items-center">
+            <i class="fas fa-database text-purple-600 mr-2"></i>
+            类目阈值配置
+          </h2>
+          
+          <div class="mb-4">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">选择主营类目：</label>
+            <select id="threshold-main-category" onchange="loadCategoryThresholds()" 
+                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+              <option value="">-- 请选择主营类目 --</option>
+            </select>
+          </div>
+          
+          <div id="threshold-config-area" class="hidden">
+            <div class="mb-4">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">选择二级类目：</label>
+              <select id="threshold-level2-category" onchange="loadSelectedThreshold()" 
+                      class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                <option value="">-- 请选择二级类目 --</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">
+                <i class="fas fa-info-circle mr-1"></i>
+                系统会按照"二级类目 → 一级类目 → 主营类目"的顺序进行兜底匹配
+              </p>
+            </div>
+            
+            <div id="threshold-form" class="hidden">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">净成交ROI（阈值）</label>
+                  <input type="number" step="0.01" id="threshold-net-roi" 
+                         class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                         placeholder="例如：1.6">
+                  <p class="text-xs text-gray-500 mt-1">倍数，如1.6表示160%</p>
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">14日结算ROI（阈值）</label>
+                  <input type="number" step="0.01" id="threshold-settle-roi" 
+                         class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                         placeholder="例如：1.47">
+                  <p class="text-xs text-gray-500 mt-1">倍数，如1.47表示147%</p>
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">14日订单结算率（阈值）</label>
+                  <input type="number" step="0.01" id="threshold-settle-rate" 
+                         class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                         placeholder="例如：0.79">
+                  <p class="text-xs text-gray-500 mt-1">小数，如0.79表示79%</p>
+                </div>
+                
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">历史消耗金额（阈值）</label>
+                  <input type="number" step="1000" id="threshold-history-spend" 
+                         class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                         placeholder="例如：100000">
+                  <p class="text-xs text-gray-500 mt-1">单位：元</p>
+                </div>
+              </div>
+              
+              <div class="mt-4 flex justify-end space-x-4">
+                <button onclick="saveThresholdConfig()" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                  <i class="fas fa-save mr-2"></i>保存阈值
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 配置保存按钮 -->
         <div class="flex justify-end space-x-4">
           <button onclick="resetSieveConfig()" class="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
             <i class="fas fa-undo mr-2"></i>恢复默认
@@ -217,6 +297,9 @@ function renderScoringConfigPage() {
       </div>
     </div>
   `;
+  
+  // 加载类目树
+  loadCategoryTreeForThresholds();
 }
 
 function updateWeight(field, value) {
@@ -304,6 +387,160 @@ async function saveSieveConfig() {
   }
 }
 
+// ==================== 阈值配置相关函数 ====================
+
+let categoryTreeData = [];
+let currentThresholdData = null;
+
+async function loadCategoryTreeForThresholds() {
+  try {
+    const response = await axios.get('/api/sieve/categories/tree');
+    categoryTreeData = response.data.data || [];
+    
+    // 填充主营类目下拉框
+    const mainSelect = document.getElementById('threshold-main-category');
+    if (mainSelect) {
+      mainSelect.innerHTML = '<option value="">-- 请选择主营类目 --</option>' +
+        categoryTreeData.map(cat => `<option value="${cat.value}">${cat.label}</option>`).join('');
+    }
+  } catch (error) {
+    showAlert('加载类目失败：' + error.message, 'error');
+  }
+}
+
+async function loadCategoryThresholds() {
+  const mainCategory = document.getElementById('threshold-main-category').value;
+  if (!mainCategory) {
+    document.getElementById('threshold-config-area').classList.add('hidden');
+    return;
+  }
+  
+  // 显示配置区域
+  document.getElementById('threshold-config-area').classList.remove('hidden');
+  
+  // 获取选中的主营类目数据
+  const mainCat = categoryTreeData.find(c => c.value === mainCategory);
+  if (!mainCat || !mainCat.children) {
+    return;
+  }
+  
+  // 构建二级类目列表（包含路径）
+  const level2Options = [];
+  mainCat.children.forEach(level1 => {
+    if (level1.children) {
+      level1.children.forEach(level2 => {
+        level2Options.push({
+          main: mainCategory,
+          level1: level1.value,
+          level2: level2.value,
+          label: `${level1.label} > ${level2.label}`
+        });
+      });
+    }
+  });
+  
+  // 填充二级类目下拉框
+  const level2Select = document.getElementById('threshold-level2-category');
+  level2Select.innerHTML = '<option value="">-- 请选择二级类目 --</option>' +
+    level2Options.map(opt => 
+      `<option value="${JSON.stringify({main: opt.main, level1: opt.level1, level2: opt.level2}).replace(/"/g, '&quot;')}">${opt.label}</option>`
+    ).join('');
+}
+
+async function loadSelectedThreshold() {
+  const level2Data = document.getElementById('threshold-level2-category').value;
+  if (!level2Data) {
+    document.getElementById('threshold-form').classList.add('hidden');
+    return;
+  }
+  
+  try {
+    const { main, level1, level2 } = JSON.parse(level2Data);
+    
+    // 调用API获取阈值
+    const response = await axios.post('/api/sieve/categories/get-thresholds', {
+      main_category: main,
+      level1_category: level1,
+      level2_category: level2
+    });
+    
+    if (response.data.success) {
+      const thresholds = response.data.data;
+      currentThresholdData = { main, level1, level2, ...thresholds };
+      
+      // 填充表单
+      document.getElementById('threshold-net-roi').value = thresholds.net_roi_min || '';
+      document.getElementById('threshold-settle-roi').value = thresholds.settle_roi_min || '';
+      document.getElementById('threshold-settle-rate').value = thresholds.settle_rate_min || '';
+      document.getElementById('threshold-history-spend').value = thresholds.history_spend_min || '';
+      
+      // 显示表单
+      document.getElementById('threshold-form').classList.remove('hidden');
+    }
+  } catch (error) {
+    showAlert('加载阈值失败：' + error.message, 'error');
+  }
+}
+
+async function saveThresholdConfig() {
+  if (!currentThresholdData) {
+    showAlert('请先选择类目', 'error');
+    return;
+  }
+  
+  const netRoi = parseFloat(document.getElementById('threshold-net-roi').value);
+  const settleRoi = parseFloat(document.getElementById('threshold-settle-roi').value);
+  const settleRate = parseFloat(document.getElementById('threshold-settle-rate').value);
+  const historySpend = parseFloat(document.getElementById('threshold-history-spend').value);
+  
+  if (isNaN(netRoi) || isNaN(settleRoi) || isNaN(settleRate) || isNaN(historySpend)) {
+    showAlert('请填写所有阈值字段！', 'error');
+    return;
+  }
+  
+  try {
+    showAlert('保存阈值中...', 'info');
+    
+    // TODO: 调用API更新阈值
+    // await axios.put('/api/admin/thresholds', {
+    //   main_category: currentThresholdData.main,
+    //   level1_category: currentThresholdData.level1,
+    //   level2_category: currentThresholdData.level2,
+    //   net_roi_min: netRoi,
+    //   settle_roi_min: settleRoi,
+    //   settle_rate_min: settleRate,
+    //   history_spend_min: historySpend
+    // });
+    
+    showAlert('阈值保存成功！（功能开发中，暂未实际保存到数据库）', 'success');
+  } catch (error) {
+    showAlert('保存失败：' + error.message, 'error');
+  }
+}
+
+async function saveSieveConfig() {
+  // 检查权重总和
+  const total = Object.values(sieveConfig.weights).reduce((sum, w) => sum + w, 0);
+  if (Math.abs(total - 1.0) > 0.01) {
+    showAlert('权重总和必须等于100%！', 'error');
+    return;
+  }
+  
+  try {
+    showAlert('保存配置中...', 'info');
+    
+    // TODO: 调用API保存配置
+    // await axios.post('/api/admin/sieve-config', sieveConfig);
+    
+    // 暂时只在前端保存
+    localStorage.setItem('sieve_config', JSON.stringify(sieveConfig));
+    
+    showAlert('配置保存成功！', 'success');
+  } catch (error) {
+    showAlert('保存失败：' + error.message, 'error');
+  }
+}
+
 // 路由注册
 Router.add('/admin/scoring-config', renderScoringConfigPage);
 
@@ -313,3 +550,7 @@ window.updateWeight = updateWeight;
 window.updateKValue = updateKValue;
 window.resetSieveConfig = resetSieveConfig;
 window.saveSieveConfig = saveSieveConfig;
+window.loadCategoryTreeForThresholds = loadCategoryTreeForThresholds;
+window.loadCategoryThresholds = loadCategoryThresholds;
+window.loadSelectedThreshold = loadSelectedThreshold;
+window.saveThresholdConfig = saveThresholdConfig;
