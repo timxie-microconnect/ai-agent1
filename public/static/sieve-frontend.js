@@ -534,30 +534,41 @@ async function handleExcelFile(file) {
       </div>
     `;
     
-    // 解析CSV文件
-    const text = await file.text();
-    const lines = text.split('\n').filter(line => line.trim());
+    let data = [];
     
-    if (lines.length < 2) {
-      throw new Error('文件格式错误：数据行数不足');
-    }
-    
-    // 跳过标题行，解析数据
-    const data = [];
-    for (let i = 1; i < lines.length && data.length < 90; i++) {
-      const parts = lines[i].split(',');
-      if (parts.length >= 2) {
-        const date = parts[0].trim();
-        const amount = parseFloat(parts[1].trim());
-        
-        if (date && !isNaN(amount) && amount >= 0) {
-          data.push({ date, amount });
+    // 根据文件类型处理
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.csv')) {
+      // 解析CSV文件
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        throw new Error('文件格式错误：数据行数不足');
+      }
+      
+      // 跳过标题行，解析数据
+      for (let i = 1; i < lines.length && data.length < 90; i++) {
+        const parts = lines[i].split(',');
+        if (parts.length >= 2) {
+          const date = parts[0].trim();
+          const amount = parseFloat(parts[1].trim());
+          
+          if (date && !isNaN(amount) && amount >= 0) {
+            data.push({ date, amount });
+          }
         }
       }
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      throw new Error('暂不支持.xlsx/.xls格式，请将文件另存为CSV格式后上传。\n\n操作步骤：\n1. 在Excel中打开文件\n2. 文件 → 另存为\n3. 选择"CSV (逗号分隔)"格式\n4. 保存并重新上传');
+    } else if (fileName.endsWith('.numbers')) {
+      throw new Error('暂不支持Mac Numbers格式，请将文件导出为CSV格式后上传。\n\n操作步骤：\n1. 在Numbers中打开文件\n2. 文件 → 导出到 → CSV\n3. 保存并重新上传');
+    } else {
+      throw new Error('不支持的文件格式。请使用CSV格式。');
     }
     
     if (data.length !== 90) {
-      throw new Error(`文件格式错误：需要90天数据，当前只有${data.length}天`);
+      throw new Error(`文件格式错误：需要90天数据，当前只有${data.length}天\n\n请确保文件格式正确：\n- 第一列为日期\n- 第二列为净成交金额（元）\n- 共91行（标题行 + 90天数据）`);
     }
     
     // 计算波动率

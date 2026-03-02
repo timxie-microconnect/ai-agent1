@@ -1658,18 +1658,22 @@ app.get('/apply-financing', (c) => {
                             <div class="mb-4">
                                 <button type="button" onclick="downloadExcelTemplate()" 
                                         class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                                    <i class="fas fa-download mr-2"></i>下载Excel模板
+                                    <i class="fas fa-download mr-2"></i>下载CSV模板
                                 </button>
                                 <span class="ml-3 text-sm text-gray-600">
-                                    模板包含最近90天日期，请填写每日净成交金额
+                                    下载CSV模板，填写后上传（如果您使用Excel或Numbers，请另存为/导出为CSV格式）
                                 </span>
                             </div>
                             
                             <div id="excel-upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition cursor-pointer">
-                                <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" class="hidden">
+                                <input type="file" id="excel-file-input" accept=".csv" class="hidden">
                                 <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
-                                <p class="text-gray-600 mb-2">点击或拖拽Excel文件到此处上传</p>
-                                <p class="text-sm text-gray-500">支持 .xlsx, .xls, .csv 格式</p>
+                                <p class="text-gray-600 mb-2">点击或拖拽CSV文件到此处上传</p>
+                                <p class="text-sm text-gray-500">仅支持 CSV 格式（如使用Excel/Numbers，请导出为CSV）</p>
+                                <p class="text-xs text-gray-400 mt-2">
+                                    Excel: 文件 → 另存为 → CSV (逗号分隔)<br>
+                                    Numbers: 文件 → 导出到 → CSV
+                                </p>
                             </div>
                             
                             <div id="excel-upload-result" class="mt-4 hidden"></div>
