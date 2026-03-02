@@ -181,8 +181,10 @@ app.post('/api/projects', authMiddleware, async (c) => {
   const submissionCode = generateSubmissionCode();
   
   try {
-    // 解析筛子类目数据
+    // 解析筛子类目数据 - 兼容多种数据格式
     let categoryData: any = {}
+    
+    // 方式1：从 selected_category_json 解析
     if (body.selected_category_json) {
       try {
         categoryData = JSON.parse(body.selected_category_json)
@@ -191,10 +193,34 @@ app.post('/api/projects', authMiddleware, async (c) => {
       }
     }
     
+    // 方式2：从 body 根级别获取（snake_case）
+    if (!categoryData.main && body.main_category) {
+      categoryData = {
+        main: body.main_category,
+        level1: body.level1_category,
+        level2: body.level2_category
+      }
+    }
+    
+    // 方式3：从 step2 获取（camelCase）
+    if (!categoryData.main && body.step2?.mainCategory) {
+      categoryData = {
+        main: body.step2.mainCategory,
+        level1: body.step2.level1Category,
+        level2: body.step2.level2Category
+      }
+    }
+    
+    // 获取筛子系统的四项指标 - 兼容多种命名方式
+    const netRoi = body.net_roi || body.step2?.netRoi || body.step2?.net_roi || null
+    const settleRoi = body.settle_roi || body.step2?.settleRoi || body.step2?.settle_roi || null
+    const settleRate = body.settle_rate || body.step2?.settleRate || body.step2?.settle_rate || null
+    const historySpend = body.history_spend || body.step2?.historySpend || body.step2?.history_spend || null
+    
     // 准入检查（如果有筛子数据）
     let admissionResult = null
     let admissionDetails = null
-    if (categoryData.main && body.net_roi && body.settle_roi && body.settle_rate && body.history_spend) {
+    if (categoryData.main && netRoi && settleRoi && settleRate && historySpend) {
       try {
         // 获取阈值
         const thresholdsResult = await DB.prepare(`
@@ -221,10 +247,10 @@ app.post('/api/projects', authMiddleware, async (c) => {
         
         if (thresholdsResult) {
           const checks = {
-            net_roi: body.net_roi >= thresholdsResult.net_roi_min,
-            settle_roi: body.settle_roi >= thresholdsResult.settle_roi_min,
-            settle_rate: body.settle_rate >= thresholdsResult.settle_rate_min,
-            history_spend: body.history_spend >= (thresholdsResult.history_spend_min || 100000)
+            net_roi: netRoi >= thresholdsResult.net_roi_min,
+            settle_roi: settleRoi >= thresholdsResult.settle_roi_min,
+            settle_rate: settleRate >= thresholdsResult.settle_rate_min,
+            history_spend: historySpend >= (thresholdsResult.history_spend_min || 100000)
           }
           
           const isAdmitted = Object.values(checks).every(v => v)
@@ -233,16 +259,16 @@ app.post('/api/projects', authMiddleware, async (c) => {
           // 生成未通过原因
           const reasons = []
           if (!checks.net_roi) {
-            reasons.push(`净成交ROI不足（实际${body.net_roi}，要求≥${thresholdsResult.net_roi_min}）`)
+            reasons.push(`净成交ROI不足（实际${netRoi}，要求≥${thresholdsResult.net_roi_min}）`)
           }
           if (!checks.settle_roi) {
-            reasons.push(`14日结算ROI不足（实际${body.settle_roi}，要求≥${thresholdsResult.settle_roi_min}）`)
+            reasons.push(`14日结算ROI不足（实际${settleRoi}，要求≥${thresholdsResult.settle_roi_min}）`)
           }
           if (!checks.settle_rate) {
-            reasons.push(`14日订单结算率不足（实际${(body.settle_rate*100).toFixed(1)}%，要求≥${(thresholdsResult.settle_rate_min*100).toFixed(1)}%）`)
+            reasons.push(`14日订单结算率不足（实际${(settleRate*100).toFixed(1)}%，要求≥${(thresholdsResult.settle_rate_min*100).toFixed(1)}%）`)
           }
           if (!checks.history_spend) {
-            reasons.push(`历史消耗额不足（实际${body.history_spend}元，要求≥${thresholdsResult.history_spend_min || 100000}元）`)
+            reasons.push(`历史消耗额不足（实际${historySpend}元，要求≥${thresholdsResult.history_spend_min || 100000}元）`)
           }
           
           admissionDetails = JSON.stringify({
@@ -253,6 +279,14 @@ app.post('/api/projects', authMiddleware, async (c) => {
       } catch (e) {
         console.error('Admission check failed:', e)
       }
+    }
+    
+    // 如果前端已经传递了准入结果，使用前端的（避免重复计算）
+    if (body.step2?.admissionResult) {
+      admissionResult = body.step2.admissionResult
+    }
+    if (body.step2?.admissionDetails) {
+      admissionDetails = body.step2.admissionDetails
     }
     
     // 插入项目主表
@@ -286,7 +320,7 @@ app.post('/api/projects', authMiddleware, async (c) => {
       body.step9?.roiTarget || null, body.step9?.roiRecoveryDays || null, body.step9?.roiMaintainDays || null, body.step9?.profitShare || null, body.step9?.annualRate || null,
       body.step9?.repaymentFrequency || null, body.step9?.repaymentRules || null,
       categoryData.main || null, categoryData.level1 || null, categoryData.level2 || null,
-      body.net_roi || null, body.settle_roi || null, body.settle_rate || null, body.history_spend || null,
+      netRoi, settleRoi, settleRate, historySpend,
       admissionResult, admissionDetails
     ).run();
     
