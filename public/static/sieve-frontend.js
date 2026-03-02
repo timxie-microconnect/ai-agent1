@@ -440,7 +440,7 @@ function displayScoringResult(scoring) {
       
       <div class="mt-4 p-3 bg-gray-50 rounded text-sm text-gray-600">
         <i class="fas fa-info-circle mr-1"></i>
-        使用${scoring.threshold_level}阈值 | 权重配置：14日ROI 35%、结算率 30%、净ROI 20%、消耗 15%
+        使用${scoring.threshold_level}阈值 | 权重配置：净ROI 20%、14日ROI 35%、结算率 30%、消耗 15%
       </div>
     </div>
   `;

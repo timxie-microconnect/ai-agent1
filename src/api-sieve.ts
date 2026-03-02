@@ -40,11 +40,11 @@ interface ScoringRule {
 }
 
 const DEFAULT_SCORING_RULE: ScoringRule = {
-  weight_net_roi: 15,
-  weight_settle_roi: 25,
-  weight_settle_rate: 25,
-  weight_history_spend: 15,
-  weight_volatility: 20,
+  weight_net_roi: 20,      // 15% -> 20%
+  weight_settle_roi: 35,   // 25% -> 35%
+  weight_settle_rate: 30,  // 25% -> 30%
+  weight_history_spend: 15, // 15% -> 15%
+  weight_volatility: 0,    // 20% -> 0% (不参与评分)
   k_net_roi: 3,
   k_settle_roi: 4,
   k_settle_rate: 4,
@@ -61,21 +61,19 @@ function calculateSieveScore(
   const u_settle = calculateUplift(actual.settle_roi, thresholds.settle_roi_min, 'ratio')
   const u_sr = calculateUplift(actual.settle_rate, thresholds.settle_rate_min, 'settle_rate')
   const u_spend = calculateUplift(actual.history_spend, thresholds.history_spend_min, 'spend')
-  // 波动率：越低越好，所以uplift = max(0, (threshold - actual) / threshold)
-  const u_volatility = Math.max(0, (thresholds.volatility_max - actual.volatility) / thresholds.volatility_max)
+  // 波动率不参与评分，仅作为统计指标显示
   
   const s_net = calculateSubScore(u_net, rule.k_net_roi)
   const s_settle = calculateSubScore(u_settle, rule.k_settle_roi)
   const s_sr = calculateSubScore(u_sr, rule.k_settle_rate)
   const s_spend = calculateSubScore(u_spend, rule.k_history_spend)
-  const s_volatility = calculateSubScore(u_volatility, rule.k_volatility)
   
+  // 总分只包含4个指标（不含波动率）
   const totalScore = 
     (rule.weight_net_roi / 100) * s_net +
     (rule.weight_settle_roi / 100) * s_settle +
     (rule.weight_settle_rate / 100) * s_sr +
-    (rule.weight_history_spend / 100) * s_spend +
-    (rule.weight_volatility / 100) * s_volatility
+    (rule.weight_history_spend / 100) * s_spend
   
   return {
     total_score: Math.round(totalScore * 10) / 10,
@@ -86,9 +84,8 @@ function calculateSieveScore(
     settle_rate_score: Math.round(s_sr * 10) / 10,
     settle_rate_uplift: Math.round(u_sr * 1000) / 1000,
     history_spend_score: Math.round(s_spend * 10) / 10,
-    history_spend_uplift: Math.round(u_spend * 1000) / 1000,
-    volatility_score: Math.round(s_volatility * 10) / 10,
-    volatility_uplift: Math.round(u_volatility * 1000) / 1000
+    history_spend_uplift: Math.round(u_spend * 1000) / 1000
+    // 波动率不参与评分，不返回score和uplift
   }
 }
 
@@ -472,7 +469,39 @@ app.post('/scoring/calculate/:projectId', async (c) => {
     console.log('===== 评分计算输出 =====')
     console.log('scoringResult:', JSON.stringify(scoringResult, null, 2))
     
-    // 构建详细结果
+    // 计算90天数据的统计指标
+    let revenueStats = null
+    if (project.daily_revenue_data) {
+      try {
+        const revenueData = JSON.parse(project.daily_revenue_data as string)
+        if (Array.isArray(revenueData) && revenueData.length > 0) {
+          const amounts = revenueData.map((d: any) => d.amount).filter((a: number) => typeof a === 'number' && !isNaN(a))
+          if (amounts.length > 0) {
+            amounts.sort((a: number, b: number) => a - b)
+            const sum = amounts.reduce((a: number, b: number) => a + b, 0)
+            const avg = sum / amounts.length
+            const median = amounts.length % 2 === 0 
+              ? (amounts[amounts.length / 2 - 1] + amounts[amounts.length / 2]) / 2 
+              : amounts[Math.floor(amounts.length / 2)]
+            const min = amounts[0]
+            const max = amounts[amounts.length - 1]
+            
+            revenueStats = {
+              count: amounts.length,
+              avg: Math.round(avg * 100) / 100,
+              median: Math.round(median * 100) / 100,
+              min: Math.round(min * 100) / 100,
+              max: Math.round(max * 100) / 100,
+              volatility: project.daily_revenue_volatility
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse revenue data:', e)
+      }
+    }
+    
+    // 构建详细结果（仅4个评分指标）
     const detailsArray = [
       {
         field_name: '净成交ROI',
@@ -517,25 +546,17 @@ app.post('/scoring/calculate/:projectId', async (c) => {
         base_score: scoringResult.history_spend_score,
         weight: scoringRule.weight_history_spend / 100,
         sub_score: (scoringRule.weight_history_spend / 100) * scoringResult.history_spend_score
-      },
-      {
-        field_name: '90天净成交波动率',
-        actual_value: project.daily_revenue_volatility,
-        threshold_value: thresholdsResult.volatility_max || 0.15,
-        actual_display: `${((project.daily_revenue_volatility as number || 0) * 100).toFixed(2)}%`,
-        threshold_display: `≤${((thresholdsResult.volatility_max as number || 0.15) * 100).toFixed(0)}%`,
-        uplift: scoringResult.volatility_uplift,
-        base_score: scoringResult.volatility_score,
-        weight: scoringRule.weight_volatility / 100,
-        sub_score: (scoringRule.weight_volatility / 100) * scoringResult.volatility_score
       }
+      // 移除波动率评分详情
     ]
     
     const resultData = {
       total_score: scoringResult.total_score,
       passed: scoringResult.total_score >= 60,
       threshold_level: '二级类目',
-      details: detailsArray
+      details: detailsArray,
+      // 添加90天数据统计指标（不参与评分）
+      revenue_stats: revenueStats
     }
     
     // 保存评分结果到数据库

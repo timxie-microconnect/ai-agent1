@@ -250,7 +250,8 @@ async function renderDashboard() {
   
   try {
     const result = await API.getProjects();
-    STATE.projects = result.projects;
+    // API现在直接返回数组，而不是{projects: [...]}
+    STATE.projects = Array.isArray(result) ? result : (result.projects || []);
     
     document.getElementById('app').innerHTML = `
       <div class="min-h-screen bg-gray-100">
@@ -902,7 +903,7 @@ window.openAdminProjectModal = async function(id) {
                   ${(() => {
                     try {
                       const details = JSON.parse(project.sieve_score_details);
-                      return details.details ? details.details.map(d => `
+                      let html = details.details ? details.details.map(d => `
                         <div class="bg-white p-3 rounded flex justify-between items-center">
                           <div>
                             <div class="font-semibold text-sm">${d.field_name}</div>
@@ -913,6 +914,52 @@ window.openAdminProjectModal = async function(id) {
                           <div class="text-lg font-bold text-blue-600">${d.sub_score.toFixed(1)}分</div>
                         </div>
                       `).join('') : '';
+                      
+                      // 添加90天数据统计指标（不参与评分）
+                      if (details.revenue_stats) {
+                        const stats = details.revenue_stats;
+                        html += `
+                          <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 class="font-bold text-blue-900 mb-3 flex items-center">
+                              <i class="fas fa-chart-bar mr-2"></i>90天净成交数据统计（不参与评分）
+                            </h4>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                              <div class="bg-white p-2 rounded">
+                                <div class="text-gray-600">数据天数</div>
+                                <div class="font-bold text-gray-900">${stats.count}天</div>
+                              </div>
+                              <div class="bg-white p-2 rounded">
+                                <div class="text-gray-600">平均值</div>
+                                <div class="font-bold text-gray-900">¥${stats.avg.toLocaleString()}</div>
+                              </div>
+                              <div class="bg-white p-2 rounded">
+                                <div class="text-gray-600">中位数</div>
+                                <div class="font-bold text-gray-900">¥${stats.median.toLocaleString()}</div>
+                              </div>
+                              <div class="bg-white p-2 rounded">
+                                <div class="text-gray-600">最低值</div>
+                                <div class="font-bold text-orange-600">¥${stats.min.toLocaleString()}</div>
+                              </div>
+                              <div class="bg-white p-2 rounded">
+                                <div class="text-gray-600">最高值</div>
+                                <div class="font-bold text-green-600">¥${stats.max.toLocaleString()}</div>
+                              </div>
+                              <div class="bg-white p-2 rounded">
+                                <div class="text-gray-600">波动率</div>
+                                <div class="font-bold ${stats.volatility > 0.10 ? 'text-red-600' : 'text-green-600'}">
+                                  ${(stats.volatility * 100).toFixed(2)}%
+                                </div>
+                              </div>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-600">
+                              <i class="fas fa-info-circle mr-1"></i>
+                              波动率反映经营稳定性，但爆发力和稳定性需要综合判断，此指标仅供参考不参与评分
+                            </div>
+                          </div>
+                        `;
+                      }
+                      
+                      return html;
                     } catch (e) {
                       return '';
                     }
