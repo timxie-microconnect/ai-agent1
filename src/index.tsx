@@ -380,24 +380,34 @@ app.get('/api/projects', authMiddleware, async (c) => {
   const user = c.get('user');
   
   const { results } = await DB.prepare(`
-    SELECT id, submission_code, status, company_name_a as project_name, created_at
+    SELECT 
+      id, submission_code, status, 
+      company_name_a, 
+      main_category, level1_category, level2_category,
+      net_roi, settle_roi, settle_rate,
+      daily_revenue_volatility,
+      sieve_score,
+      created_at
     FROM projects 
     WHERE user_id = ? 
     ORDER BY created_at DESC
   `).bind(user.userId).all();
   
-  return c.json({ 
-    success: true, 
-    projects: results.map((p: any) => ({
-      id: p.id,
-      submissionCode: p.submission_code,
-      status: p.status,
-      statusText: getStatusText(p.status),
-      statusColor: getStatusColor(p.status),
-      projectName: p.project_name,
-      createdAt: formatDateTime(p.created_at)
-    }))
-  });
+  return c.json(results.map((p: any) => ({
+    id: p.id,
+    submissionCode: p.submission_code,
+    status: p.status,
+    company_name: p.company_name_a || '未命名项目',
+    main_category: p.main_category,
+    level1_category: p.level1_category,
+    level2_category: p.level2_category,
+    net_roi: p.net_roi,
+    settle_roi: p.settle_roi,
+    settle_rate: p.settle_rate,
+    daily_revenue_volatility: p.daily_revenue_volatility,
+    sieve_score: p.sieve_score,
+    created_at: p.created_at
+  })));
 });
 
 // 获取项目详情
