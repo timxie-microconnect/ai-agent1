@@ -713,7 +713,8 @@ function renderListingInfoForm() {
           挂牌主体信息收集
         </h2>
         <p class="text-gray-600 mt-2">
-          请完整填写以下信息，用于挂牌申请。您可以随时保存草稿，稍后继续填写。
+          <i class="fas fa-info-circle mr-1"></i>
+          您可以随时<strong>保存草稿</strong>，无需填写所有字段。只有<strong>提交</strong>时才需要完整填写所有必填项。
         </p>
       </div>
       
@@ -731,8 +732,9 @@ function renderListingInfoForm() {
             </button>
           </div>
           <p class="text-sm text-gray-600 mt-3 text-center">
-            <i class="fas fa-info-circle mr-1"></i>
-            提交前请确保所有必填信息已完整填写
+            <i class="fas fa-lightbulb mr-1 text-yellow-500"></i>
+            <strong>保存草稿</strong>：保存当前已填写的内容，无需完整填写 | 
+            <strong>提交</strong>：需完整填写所有必填项（标记<span class="text-red-500">*</span>）后才能提交
           </p>
         </div>
       </form>
