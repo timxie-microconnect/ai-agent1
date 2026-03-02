@@ -5,6 +5,7 @@ import { calculateScore } from './scoring';
 import { generateSubmissionCode, formatDateTime, getStatusText, getStatusColor, createSimpleToken, verifySimpleToken } from './utils';
 import adminExtendedApi from './api-admin-extended';
 import sieveApi from './api-sieve';
+import investmentApi from './api-investment';
 
 type Bindings = {
   DB: D1Database;
@@ -1642,5 +1643,8 @@ app.route('/api/admin', adminExtendedApi);
 
 // 挂载筛子评分API
 app.route('/api/sieve', sieveApi);
+
+// 挂载投资方案API
+app.route('/api/investment', investmentApi);
 
 export default app;
