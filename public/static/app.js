@@ -582,6 +582,10 @@ async function renderProjectDetail(id) {
     const result = await API.getProject(id);
     const project = result.project;
     
+    // 构建类目路径
+    const categoryPath = [project.main_category, project.level1_category, project.level2_category]
+      .filter(Boolean).join(' > ') || '未填写';
+    
     document.getElementById('app').innerHTML = `
       <div class="min-h-screen bg-gray-100">
         <nav class="bg-white shadow-sm">
@@ -593,6 +597,7 @@ async function renderProjectDetail(id) {
         </nav>
         
         <div class="max-w-5xl mx-auto px-4 py-8">
+          <!-- 项目标题卡片 -->
           <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
             <div class="flex justify-between items-start mb-4">
               <div>
@@ -601,19 +606,117 @@ async function renderProjectDetail(id) {
               </div>
               <div>${getStatusBadge(project.status, project.statusText)}</div>
             </div>
+            
+            <!-- 类目信息 -->
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div class="text-sm text-gray-600 mb-1">经营类目</div>
+              <div class="text-lg font-semibold text-blue-900">${categoryPath}</div>
+            </div>
           </div>
           
-          
-          <div class="bg-white rounded-lg shadow-lg p-6">
-            <h2 class="text-2xl font-bold mb-4"><i class="fas fa-info-circle mr-2"></i>项目信息</h2>
-            <div class="space-y-4">
-              <div><span class="font-semibold">品类：</span>${project.product_category}</div>
-              <div><span class="font-semibold">投流ROI：</span>${project.roi}%</div>
-              <div><span class="font-semibold">退货率：</span>${project.return_rate}%</div>
-              <div><span class="font-semibold">净利润率：</span>${project.profit_rate}%</div>
-              <div><span class="font-semibold">店铺评分：</span>${project.shop_score}分</div>
-              <div><span class="font-semibold">运营时间：</span>${project.operation_months}个月</div>
+          <!-- 经营数据卡片 -->
+          <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">
+              <i class="fas fa-chart-line mr-2"></i>经营数据
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">净成交ROI</div>
+                <div class="text-2xl font-bold text-blue-900">
+                  ${project.net_roi ? project.net_roi : '-'}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                  ${project.net_roi ? (project.net_roi * 100).toFixed(0) + '%' : ''}
+                </div>
+              </div>
+              
+              <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">14日结算ROI</div>
+                <div class="text-2xl font-bold text-green-900">
+                  ${project.settle_roi ? project.settle_roi : '-'}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                  ${project.settle_roi ? (project.settle_roi * 100).toFixed(0) + '%' : ''}
+                </div>
+              </div>
+              
+              <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">订单结算率</div>
+                <div class="text-2xl font-bold text-purple-900">
+                  ${project.settle_rate ? (project.settle_rate * 100).toFixed(1) + '%' : '-'}
+                </div>
+              </div>
+              
+              <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg">
+                <div class="text-sm text-gray-600 mb-1">历史消耗</div>
+                <div class="text-2xl font-bold text-orange-900">
+                  ${project.history_spend ? '¥' + project.history_spend.toLocaleString() : '-'}
+                </div>
+              </div>
             </div>
+          </div>
+          
+          <!-- 筛子评分结果 -->
+          ${project.sieve_score != null ? `
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <h2 class="text-2xl font-bold mb-4">
+                <i class="fas fa-award mr-2"></i>筛子评分
+              </h2>
+              <div class="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg">
+                <div class="text-6xl font-bold ${project.sieve_score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                  ${project.sieve_score}
+                </div>
+                <div class="text-lg mt-2 text-gray-600">总分（满分100）</div>
+                <div class="text-xl mt-3 font-semibold ${project.sieve_score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                  ${project.sieve_score >= 60 ? '✅ 评分通过' : '❌ 评分未达标'}
+                </div>
+              </div>
+            </div>
+          ` : ''}
+          
+          <!-- 投资方案入口（审批通过后显示）-->
+          ${project.status === 'approved' || project.status === 'contract_uploaded' || project.status === 'funded' ? `
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-2xl font-bold mb-2">
+                    <i class="fas fa-rocket mr-2"></i>投资方案
+                  </h3>
+                  <p class="text-blue-100">
+                    您的项目已通过审批，现在可以设计投资方案了！
+                  </p>
+                </div>
+                <button onclick="Router.navigate('/investment-plan/${id}')" 
+                        class="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-bold text-lg">
+                  <i class="fas fa-chart-line mr-2"></i>查看/设计方案
+                </button>
+              </div>
+            </div>
+          ` : project.status === 'pending' || project.status === 'scoring' ? `
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+              <div class="flex items-center">
+                <i class="fas fa-clock text-yellow-600 text-3xl mr-4"></i>
+                <div>
+                  <h3 class="text-lg font-bold text-yellow-900">项目审核中</h3>
+                  <p class="text-yellow-700 mt-1">管理员正在审核您的项目，请耐心等待...</p>
+                </div>
+              </div>
+            </div>
+          ` : project.status === 'rejected' ? `
+            <div class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+              <div class="flex items-center">
+                <i class="fas fa-times-circle text-red-600 text-3xl mr-4"></i>
+                <div>
+                  <h3 class="text-lg font-bold text-red-900">项目未通过审批</h3>
+                  <p class="text-red-700 mt-1">您的项目未通过审核，如有疑问请联系管理员</p>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+          
+          <!-- 创建时间 -->
+          <div class="bg-white rounded-lg shadow-lg p-4 text-center text-gray-600">
+            <i class="fas fa-calendar mr-2"></i>创建时间：${project.createdAt || project.created_at}
           </div>
         </div>
       </div>
