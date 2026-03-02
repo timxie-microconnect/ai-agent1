@@ -3,6 +3,7 @@
 
 import { Hono } from 'hono'
 import type { Context } from 'hono'
+import { calculateSieveScore, DEFAULT_SCORING_RULE } from './scoring-sieve'
 
 const app = new Hono<{ Bindings: { DB: D1Database } }>()
 
@@ -316,21 +317,93 @@ app.post('/scoring/calculate/:projectId', async (c) => {
       return c.json({ success: false, error: '未找到对应阈值' }, 404)
     }
     
-    // 计算评分
-    const scoring = calculateSieveScore(
+    // 获取系统配置的评分规则（权重和k值）
+    const configResult = await db.prepare(`
+      SELECT * FROM sieve_system_config LIMIT 1
+    `).first()
+    
+    const scoringRule = configResult ? {
+      weight_net_roi: configResult.weight_net_roi * 100,
+      weight_settle_roi: configResult.weight_settle_roi * 100,
+      weight_settle_rate: configResult.weight_settle_rate * 100,
+      weight_history_spend: configResult.weight_history_spend * 100,
+      k_net_roi: configResult.k_net_roi,
+      k_settle_roi: configResult.k_settle_roi,
+      k_settle_rate: configResult.k_settle_rate,
+      k_history_spend: configResult.k_history_spend
+    } : DEFAULT_SCORING_RULE
+    
+    // 计算评分 - 使用标准的scoring-sieve模块
+    const scoringResult = calculateSieveScore(
       {
-        net_roi: project.net_roi,
-        settle_roi: project.settle_roi,
-        settle_rate: project.settle_rate,
-        history_spend: project.history_spend
+        net_roi: project.net_roi as number,
+        settle_roi: project.settle_roi as number,
+        settle_rate: project.settle_rate as number,
+        history_spend: project.history_spend as number
       },
       {
-        net_roi_min: thresholdsResult.net_roi_min,
-        settle_roi_min: thresholdsResult.settle_roi_min,
-        settle_rate_min: thresholdsResult.settle_rate_min,
-        history_spend_min: thresholdsResult.history_spend_min || 100000
-      }
+        net_roi_min: thresholdsResult.net_roi_min as number,
+        settle_roi_min: thresholdsResult.settle_roi_min as number,
+        settle_rate_min: thresholdsResult.settle_rate_min as number,
+        history_spend_min: (thresholdsResult.history_spend_min as number) || 100000
+      },
+      scoringRule
     )
+    
+    // 构建详细结果
+    const detailsArray = [
+      {
+        field_name: '净成交ROI',
+        actual_value: project.net_roi,
+        threshold_value: thresholdsResult.net_roi_min,
+        actual_display: `${((project.net_roi as number) * 100).toFixed(2)}%`,
+        threshold_display: `≥${((thresholdsResult.net_roi_min as number) * 100).toFixed(2)}%`,
+        uplift: scoringResult.net_roi_uplift,
+        base_score: scoringResult.net_roi_score,
+        weight: scoringRule.weight_net_roi / 100,
+        sub_score: (scoringRule.weight_net_roi / 100) * scoringResult.net_roi_score
+      },
+      {
+        field_name: '14日结算ROI',
+        actual_value: project.settle_roi,
+        threshold_value: thresholdsResult.settle_roi_min,
+        actual_display: `${((project.settle_roi as number) * 100).toFixed(2)}%`,
+        threshold_display: `≥${((thresholdsResult.settle_roi_min as number) * 100).toFixed(2)}%`,
+        uplift: scoringResult.settle_roi_uplift,
+        base_score: scoringResult.settle_roi_score,
+        weight: scoringRule.weight_settle_roi / 100,
+        sub_score: (scoringRule.weight_settle_roi / 100) * scoringResult.settle_roi_score
+      },
+      {
+        field_name: '14日订单结算率',
+        actual_value: project.settle_rate,
+        threshold_value: thresholdsResult.settle_rate_min,
+        actual_display: `${((project.settle_rate as number) * 100).toFixed(2)}%`,
+        threshold_display: `≥${((thresholdsResult.settle_rate_min as number) * 100).toFixed(2)}%`,
+        uplift: scoringResult.settle_rate_uplift,
+        base_score: scoringResult.settle_rate_score,
+        weight: scoringRule.weight_settle_rate / 100,
+        sub_score: (scoringRule.weight_settle_rate / 100) * scoringResult.settle_rate_score
+      },
+      {
+        field_name: '历史消耗金额',
+        actual_value: project.history_spend,
+        threshold_value: thresholdsResult.history_spend_min || 100000,
+        actual_display: `¥${(project.history_spend as number).toLocaleString()}`,
+        threshold_display: `≥¥${((thresholdsResult.history_spend_min as number || 100000)).toLocaleString()}`,
+        uplift: scoringResult.history_spend_uplift,
+        base_score: scoringResult.history_spend_score,
+        weight: scoringRule.weight_history_spend / 100,
+        sub_score: (scoringRule.weight_history_spend / 100) * scoringResult.history_spend_score
+      }
+    ]
+    
+    const resultData = {
+      total_score: scoringResult.total_score,
+      passed: scoringResult.total_score >= 60,
+      threshold_level: '二级类目',
+      details: detailsArray
+    }
     
     // 保存评分结果到数据库
     await db.prepare(`
@@ -340,119 +413,16 @@ app.post('/scoring/calculate/:projectId', async (c) => {
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(
-      scoring.total_score,
-      JSON.stringify(scoring),
+      resultData.total_score,
+      JSON.stringify(resultData),
       projectId
     ).run()
     
-    return c.json({ success: true, data: scoring })
+    return c.json({ success: true, data: resultData })
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500)
   }
 })
-
-// 评分计算函数
-function calculateSieveScore(actual: any, thresholds: any) {
-  const weights = {
-    net_roi: 0.20,
-    settle_roi: 0.35,
-    settle_rate: 0.30,
-    history_spend: 0.15
-  }
-  
-  const kValues = {
-    net_roi: 3.0,
-    settle_roi: 4.0,
-    settle_rate: 4.0,
-    history_spend: 1.5
-  }
-  
-  // 计算单项分数
-  const calculateSubScore = (actualValue: number, threshold: number, k: number, isRate: boolean = false) => {
-    let uplift = 0
-    
-    if (isRate) {
-      // 结算率特殊处理：标准化到0-1空间
-      uplift = Math.max(0, (actualValue - threshold) / (1 - threshold))
-    } else {
-      uplift = Math.max(0, actualValue / threshold - 1)
-    }
-    
-    const baseScore = 100 * (1 - Math.exp(-k * uplift))
-    return { baseScore, uplift }
-  }
-  
-  // 净成交ROI
-  const netRoiResult = calculateSubScore(actual.net_roi, thresholds.net_roi_min, kValues.net_roi)
-  const netRoiScore = weights.net_roi * netRoiResult.baseScore
-  
-  // 14日结算ROI
-  const settleRoiResult = calculateSubScore(actual.settle_roi, thresholds.settle_roi_min, kValues.settle_roi)
-  const settleRoiScore = weights.settle_roi * settleRoiResult.baseScore
-  
-  // 14日订单结算率
-  const settleRateResult = calculateSubScore(actual.settle_rate, thresholds.settle_rate_min, kValues.settle_rate, true)
-  const settleRateScore = weights.settle_rate * settleRateResult.baseScore
-  
-  // 历史消耗（对数标准化）
-  const spendUplift = Math.max(0, Math.log10(actual.history_spend / thresholds.history_spend_min))
-  const spendBaseScore = 100 * (1 - Math.exp(-kValues.history_spend * spendUplift))
-  const spendScore = weights.history_spend * spendBaseScore
-  
-  const totalScore = netRoiScore + settleRoiScore + settleRateScore + spendScore
-  
-  return {
-    total_score: Math.round(totalScore * 10) / 10,  // 保留1位小数
-    passed: totalScore >= 60,
-    threshold_level: '二级类目',
-    details: [
-      {
-        field_name: '净成交ROI',
-        actual_value: actual.net_roi,
-        threshold_value: thresholds.net_roi_min,
-        actual_display: `${(actual.net_roi * 100).toFixed(2)}%`,
-        threshold_display: `≥${(thresholds.net_roi_min * 100).toFixed(2)}%`,
-        uplift: netRoiResult.uplift,
-        base_score: netRoiResult.baseScore,
-        weight: weights.net_roi,
-        sub_score: netRoiScore
-      },
-      {
-        field_name: '14日结算ROI',
-        actual_value: actual.settle_roi,
-        threshold_value: thresholds.settle_roi_min,
-        actual_display: `${(actual.settle_roi * 100).toFixed(2)}%`,
-        threshold_display: `≥${(thresholds.settle_roi_min * 100).toFixed(2)}%`,
-        uplift: settleRoiResult.uplift,
-        base_score: settleRoiResult.baseScore,
-        weight: weights.settle_roi,
-        sub_score: settleRoiScore
-      },
-      {
-        field_name: '14日订单结算率',
-        actual_value: actual.settle_rate,
-        threshold_value: thresholds.settle_rate_min,
-        actual_display: `${(actual.settle_rate * 100).toFixed(2)}%`,
-        threshold_display: `≥${(thresholds.settle_rate_min * 100).toFixed(2)}%`,
-        uplift: settleRateResult.uplift,
-        base_score: settleRateResult.baseScore,
-        weight: weights.settle_rate,
-        sub_score: settleRateScore
-      },
-      {
-        field_name: '历史消耗金额',
-        actual_value: actual.history_spend,
-        threshold_value: thresholds.history_spend_min,
-        actual_display: `¥${actual.history_spend.toLocaleString()}`,
-        threshold_display: `≥¥${thresholds.history_spend_min.toLocaleString()}`,
-        uplift: spendUplift,
-        base_score: spendBaseScore,
-        weight: weights.history_spend,
-        sub_score: spendScore
-      }
-    ]
-  }
-}
 
 // ==========================================
 // 6. 筛子系统配置管理

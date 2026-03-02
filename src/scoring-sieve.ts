@@ -66,11 +66,19 @@ function calculateUplift(
 }
 
 /**
- * 边际递减子分映射（0-100）
- * Score(u, k) = 100 * (1 - exp(-k * u))
+ * 边际递减子分映射（60-100）
+ * 刚好达到阈值 = 60分（及格线）
+ * 超过阈值 = 60 + 40 * (1 - exp(-k * u))
+ * 
+ * 说明：
+ * - 达到阈值就给60分（基础分）
+ * - 超过阈值的部分最多再给40分
+ * - 使用边际递减函数，越往上越难得分
  */
 function calculateSubScore(uplift: number, k: number): number {
-  return 100 * (1 - Math.exp(-k * uplift))
+  const baseScore = 60  // 达到阈值的基础分
+  const extraScore = 40 * (1 - Math.exp(-k * uplift))  // 超过阈值的额外分
+  return baseScore + extraScore
 }
 
 /**
@@ -93,7 +101,9 @@ export function calculateSieveScore(
   const s_sr = calculateSubScore(u_sr, rule.k_settle_rate)
   const s_spend = calculateSubScore(u_spend, rule.k_history_spend)
   
-  // 3. 加权总分（方案A权重：20%, 35%, 30%, 15%）
+  // 3. 加权总分
+  // 如果所有指标刚好达到阈值，每个指标得60分，加权后总分=60分
+  // 权重：净ROI 20%, 14日ROI 35%, 结算率 30%, 历史消耗 15%
   const totalScore = 
     (rule.weight_net_roi / 100) * s_net +
     (rule.weight_settle_roi / 100) * s_settle +
@@ -102,13 +112,13 @@ export function calculateSieveScore(
   
   // 4. 生成详细说明
   const details = `
-    评分详情（方案A-回款安全优先）：
+    评分详情（刚好达到阈值=60分，超过阈值最多再+40分）：
     
     1. 净成交ROI：
        - 实际值: ${actual.net_roi.toFixed(2)}
        - 阈值: ${thresholds.net_roi_min.toFixed(2)}
        - 提升幅度: ${(u_net * 100).toFixed(1)}%
-       - 子分: ${s_net.toFixed(1)}
+       - 子分: ${s_net.toFixed(1)} (基础60 + 额外${(s_net-60).toFixed(1)})
        - 权重: ${rule.weight_net_roi}%
        - 加权得分: ${((rule.weight_net_roi / 100) * s_net).toFixed(1)}
     
@@ -116,7 +126,7 @@ export function calculateSieveScore(
        - 实际值: ${actual.settle_roi.toFixed(2)}
        - 阈值: ${thresholds.settle_roi_min.toFixed(2)}
        - 提升幅度: ${(u_settle * 100).toFixed(1)}%
-       - 子分: ${s_settle.toFixed(1)}
+       - 子分: ${s_settle.toFixed(1)} (基础60 + 额外${(s_settle-60).toFixed(1)})
        - 权重: ${rule.weight_settle_roi}%
        - 加权得分: ${((rule.weight_settle_roi / 100) * s_settle).toFixed(1)}
     
@@ -124,7 +134,7 @@ export function calculateSieveScore(
        - 实际值: ${(actual.settle_rate * 100).toFixed(1)}%
        - 阈值: ${(thresholds.settle_rate_min * 100).toFixed(1)}%
        - 剩余空间提升: ${(u_sr * 100).toFixed(1)}%
-       - 子分: ${s_sr.toFixed(1)}
+       - 子分: ${s_sr.toFixed(1)} (基础60 + 额外${(s_sr-60).toFixed(1)})
        - 权重: ${rule.weight_settle_rate}%
        - 加权得分: ${((rule.weight_settle_rate / 100) * s_sr).toFixed(1)}
     
@@ -132,11 +142,12 @@ export function calculateSieveScore(
        - 实际值: ${actual.history_spend}元
        - 阈值: ${thresholds.history_spend_min}元
        - 对数提升: ${u_spend.toFixed(2)}
-       - 子分: ${s_spend.toFixed(1)}
+       - 子分: ${s_spend.toFixed(1)} (基础60 + 额外${(s_spend-60).toFixed(1)})
        - 权重: ${rule.weight_history_spend}%
        - 加权得分: ${((rule.weight_history_spend / 100) * s_spend).toFixed(1)}
     
     总分: ${totalScore.toFixed(1)} / 100
+    (所有指标刚好达到阈值时总分=60分，超过阈值可获得额外分数)
   `
   
   return {
