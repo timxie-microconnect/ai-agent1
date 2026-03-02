@@ -941,9 +941,14 @@ window.openAdminProjectModal = async function(id) {
               <div class="bg-green-50 p-4 rounded mb-4">
                 <p class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-2"></i>项目已通过审批</p>
               </div>
-              <button onclick="handleUploadContract(${id})" class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                <i class="fas fa-upload mr-2"></i>上传协议
-              </button>
+              <div class="flex gap-4">
+                <button onclick="navigateToInvestmentPlan(${id})" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg font-bold">
+                  <i class="fas fa-chart-line mr-2"></i>设计投资方案
+                </button>
+                <button onclick="handleUploadContract(${id})" class="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  <i class="fas fa-upload mr-2"></i>上传协议
+                </button>
+              </div>
             ` : project.status === 'contract_uploaded' ? `
               <div class="bg-yellow-50 p-4 rounded mb-4">
                 <p class="text-yellow-700 font-semibold"><i class="fas fa-file-contract mr-2"></i>协议已上传</p>
@@ -996,6 +1001,11 @@ window.handleSieveScore = async function(id) {
   } catch (error) {
     showAlert(error.response?.data?.error || error.message || '评分失败', 'error');
   }
+};
+
+// 导航到投资方案设计页面
+window.navigateToInvestmentPlan = function(id) {
+  window.location.href = `/investment-plan/${id}`;
 };
 
 window.handleApprove = async function(id, action) {
