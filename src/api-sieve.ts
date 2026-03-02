@@ -373,11 +373,12 @@ app.post('/scoring/calculate/:projectId', async (c) => {
       return c.json({ success: false, error: '项目不存在' }, 404)
     }
     
-    // 检查是否通过准入
-    if (project.admission_result !== '可评分') {
+    // 管理员可以对任何有数据的项目进行评分，不检查准入结果
+    // 只检查必要的数据是否存在
+    if (!project.main_category || !project.net_roi) {
       return c.json({ 
         success: false, 
-        error: '项目未通过准入审核，无法评分'
+        error: '项目缺少必要的评分数据（类目或经营指标）'
       }, 400)
     }
     
