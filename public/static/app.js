@@ -704,12 +704,18 @@ window.handleAdminLogin = async function(event) {
 // 管理员后台
 async function renderAdminDashboard() {
   if (!checkAuth()) {
+    console.log('未授权，跳转到登录页');
     Router.navigate('/admin/login');
     return;
   }
   
+  console.log('当前STATE.token:', STATE.token);
+  console.log('当前STATE.user:', STATE.user);
+  
   try {
+    console.log('开始请求管理员项目列表...');
     const result = await API.getAllProjects();
+    console.log('获取到项目列表:', result);
     STATE.allProjects = result.projects;
     
     document.getElementById('app').innerHTML = `

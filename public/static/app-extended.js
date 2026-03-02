@@ -1,3 +1,33 @@
+// ==================== API 扩展封装 ====================
+const API_EXTENDED = {
+  baseURL: '/api',
+  getHeaders() {
+    const headers = { 'Content-Type': 'application/json' };
+    if (STATE.token) headers['Authorization'] = `Bearer ${STATE.token}`;
+    return headers;
+  },
+  async request(method, url, data = null) {
+    try {
+      const config = { method, url: this.baseURL + url, headers: this.getHeaders() };
+      if (data) config.data = data;
+      const response = await axios(config);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.error || '请求失败');
+    }
+  },
+  // 动态评分
+  scoreDynamic: (id) => API_EXTENDED.request('POST', `/admin/projects/${id}/score`),
+  // 上传合同文件
+  uploadContractFile: (id, data) => API_EXTENDED.request('POST', `/admin/projects/${id}/upload-contract`, data),
+  // 尽调相关
+  saveDueDiligence: (id, data) => API_EXTENDED.request('POST', `/admin/projects/${id}/due-diligence`, data),
+  getDueDiligence: (id) => API_EXTENDED.request('GET', `/admin/projects/${id}/due-diligence`),
+};
+
+// 导出到全局
+window.API_EXTENDED = API_EXTENDED;
+
 // ==================== 筛子系统配置管理 ====================
 
 // 筛子系统当前配置
