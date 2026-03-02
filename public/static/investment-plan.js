@@ -78,6 +78,9 @@ window.renderInvestmentPlanPage = async function(projectId) {
       }
     }
     
+    // 加载挂牌信息
+    await loadListingData(projectId);
+    
     // 渲染单页界面
     const app = document.getElementById('app');
     app.innerHTML = `
@@ -343,13 +346,16 @@ function renderMainContent() {
         </div>
       </div>
       
-      <!-- 提交按钮 -->
+      <!-- 保存投资方案按钮 -->
       <div class="flex gap-4 mt-8">
         <button type="submit" class="flex-1 px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 font-bold text-lg shadow-xl transform hover:scale-105 transition">
           <i class="fas fa-save mr-2"></i>保存投资方案
         </button>
       </div>
     </form>
+    
+    <!-- 挂牌信息收集表单 -->
+    ${renderListingInfoForm()}
   `;
 }
 
@@ -497,3 +503,384 @@ window.handleSaveInvestmentPlan = async function(event) {
     showAlert('保存失败: ' + error.message, 'error');
   }
 };
+
+// ==============================================================================
+// 挂牌信息收集表单模块
+// ==============================================================================
+
+// 挂牌信息表单结构（从Excel解析）
+const LISTING_FORM_STRUCTURE = [
+  {
+    "section": "挂牌主体工商信息",
+    "fields": [
+      {"name": "company_name", "label": "挂牌主体企业中文名称", "type": "text", "required": true},
+      {"name": "registration_number", "label": "注册编号", "type": "text", "required": true},
+      {"name": "registered_address", "label": "注册地址", "type": "text", "required": true},
+      {"name": "establishment_date", "label": "企业成立日期", "type": "date", "required": true},
+      {"name": "business_format", "label": "主题业态", "type": "text", "placeholder": "主要行业", "required": true},
+      {"name": "business_intro", "label": "主营业务简介", "type": "textarea", "placeholder": "相关行业简介", "required": true},
+      {"name": "business_scope", "label": "经营范围", "type": "textarea", "placeholder": "参考注册证书", "required": true}
+    ]
+  },
+  {
+    "section": "法定代表人",
+    "fields": [
+      {"name": "legal_rep_name", "label": "中文姓名", "type": "text", "required": true},
+      {"name": "legal_rep_id_type", "label": "证件类型", "type": "select", "options": ["身份证", "护照", "其他"], "required": true},
+      {"name": "legal_rep_id_number", "label": "证件号码", "type": "text", "required": true},
+      {"name": "legal_rep_address", "label": "实际居住地址", "type": "text", "required": true},
+      {"name": "legal_rep_email", "label": "电邮", "type": "email", "required": true},
+      {"name": "legal_rep_phone", "label": "电话", "type": "tel", "required": true}
+    ]
+  },
+  {
+    "section": "实控人",
+    "description": "请填写股权穿透后持股占比最大的自然人及其它实际控制人",
+    "fields": [
+      {"name": "actual_controller_name", "label": "中文姓名", "type": "text", "required": true},
+      {"name": "actual_controller_id_type", "label": "证件类型", "type": "select", "options": ["身份证", "护照", "其他"], "required": true},
+      {"name": "actual_controller_id_number", "label": "证件号码", "type": "text", "required": true},
+      {"name": "actual_controller_address", "label": "实际居住地址", "type": "text", "required": true},
+      {"name": "actual_controller_email", "label": "电邮", "type": "email", "required": true},
+      {"name": "actual_controller_phone", "label": "电话", "type": "tel", "required": true}
+    ]
+  },
+  {
+    "section": "实益拥有人",
+    "description": "所有直接地或間接地擁有或控制25%或以上實益擁有權的自然人",
+    "fields": [
+      {"name": "beneficial_owner_name", "label": "中文姓名", "type": "text", "required": false},
+      {"name": "beneficial_owner_id_type", "label": "证件类型", "type": "select", "options": ["身份证", "护照", "其他"], "required": false},
+      {"name": "beneficial_owner_id_number", "label": "证件号码", "type": "text", "required": false},
+      {"name": "beneficial_owner_address", "label": "实际居住地址", "type": "text", "required": false},
+      {"name": "beneficial_owner_email", "label": "电邮", "type": "email", "required": false},
+      {"name": "beneficial_owner_phone", "label": "电话", "type": "tel", "required": false}
+    ]
+  },
+  {
+    "section": "准入条件",
+    "fields": [
+      {"name": "condition_1", "label": "存续时间不短于12个月", "type": "radio", "options": ["是", "否"], "required": true, "note": "如选否，请提供相关说明和证明"},
+      {"name": "condition_1_note", "label": "说明（如选否）", "type": "textarea", "required": false},
+      {"name": "condition_2", "label": "最近连续365日合计营业额不低于500万人民币", "type": "radio", "options": ["是", "否"], "required": true},
+      {"name": "condition_2_note", "label": "说明（如选否）", "type": "textarea", "required": false},
+      {"name": "condition_3", "label": "有可靠且运营情况良好的收入管控系统", "type": "radio", "options": ["是", "否"], "required": true},
+      {"name": "condition_4", "label": "整体营收状况良好，能够达到营收能力要求", "type": "radio", "options": ["是", "否"], "required": true},
+      {"name": "condition_5", "label": "不存在重大法律合规风险", "type": "radio", "options": ["是", "否"], "required": true}
+    ]
+  },
+  {
+    "section": "企业预计营收信息",
+    "fields": [
+      {"name": "revenue_2026", "label": "2026 营业总收入/门店数", "type": "text", "placeholder": "如：1000万/3家", "required": true},
+      {"name": "revenue_2027", "label": "2027 营业总收入/门店数", "type": "text", "placeholder": "如：1200万/5家", "required": true},
+      {"name": "revenue_2028", "label": "2028 营业总收入/门店数", "type": "text", "placeholder": "如：1500万/8家", "required": true},
+      {"name": "revenue_2029", "label": "2029 营业总收入/门店数", "type": "text", "placeholder": "如：2000万/10家", "required": true}
+    ]
+  },
+  {
+    "section": "授权人信息",
+    "description": "可以是法人/其他授权人士",
+    "fields": [
+      {"name": "authorizer_name", "label": "中文姓名", "type": "text", "required": true},
+      {"name": "authorizer_id_type", "label": "证件类型", "type": "select", "options": ["身份证", "护照", "其他"], "required": true},
+      {"name": "authorizer_id_number", "label": "证件号码", "type": "text", "required": true},
+      {"name": "authorizer_address", "label": "实际居住地址", "type": "text", "required": true},
+      {"name": "authorizer_email", "label": "电邮", "type": "email", "required": true},
+      {"name": "authorizer_phone", "label": "电话", "type": "tel", "required": true}
+    ]
+  }
+];
+
+// 全局状态
+let LISTING_STATE = {
+  listingData: {},
+  isDirty: false
+};
+
+// ==========================================
+// 渲染挂牌信息表单
+// ==========================================
+function renderListingInfoForm() {
+  return `
+    <div class="bg-white rounded-xl shadow-xl p-8 mt-8">
+      <div class="border-b-2 border-purple-200 pb-4 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">
+          <i class="fas fa-clipboard-list mr-2 text-purple-600"></i>
+          挂牌主体信息收集
+        </h2>
+        <p class="text-gray-600 mt-2">
+          请完整填写以下信息，用于挂牌申请。您可以随时保存草稿，稍后继续填写。
+        </p>
+      </div>
+      
+      <form id="listingForm" class="space-y-8">
+        ${renderFormSections()}
+        
+        <!-- 表单操作按钮 -->
+        <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 mt-8">
+          <div class="flex gap-4">
+            <button type="button" onclick="saveListingDraft()" class="flex-1 px-6 py-3 bg-white border-2 border-purple-600 text-purple-600 rounded-lg hover:bg-purple-50 font-bold">
+              <i class="fas fa-save mr-2"></i>保存草稿
+            </button>
+            <button type="button" onclick="submitListingInfo()" class="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 font-bold shadow-lg">
+              <i class="fas fa-paper-plane mr-2"></i>提交挂牌信息
+            </button>
+          </div>
+          <p class="text-sm text-gray-600 mt-3 text-center">
+            <i class="fas fa-info-circle mr-1"></i>
+            提交前请确保所有必填信息已完整填写
+          </p>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+// ==========================================
+// 渲染所有表单分段
+// ==========================================
+function renderFormSections() {
+  return LISTING_FORM_STRUCTURE.map((section, index) => `
+    <div class="border-l-4 border-purple-500 pl-6 py-4 bg-purple-50 rounded-r-lg">
+      <h3 class="text-xl font-bold text-gray-800 mb-1">
+        ${index + 1}. ${section.section}
+      </h3>
+      ${section.description ? `
+        <p class="text-sm text-gray-600 mb-4">
+          <i class="fas fa-info-circle mr-1"></i>${section.description}
+        </p>
+      ` : ''}
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        ${section.fields.map(field => renderFormField(field)).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ==========================================
+// 渲染单个表单字段
+// ==========================================
+function renderFormField(field) {
+  const { name, label, type, required, placeholder, options, note } = field;
+  const requiredMark = required ? '<span class="text-red-500">*</span>' : '';
+  
+  let fieldHTML = '';
+  
+  switch (type) {
+    case 'text':
+    case 'email':
+    case 'tel':
+    case 'date':
+      fieldHTML = `
+        <input 
+          type="${type}" 
+          id="${name}" 
+          name="${name}"
+          ${required ? 'required' : ''}
+          ${placeholder ? `placeholder="${placeholder}"` : ''}
+          class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+          onchange="markFormDirty()"
+        >
+      `;
+      break;
+      
+    case 'textarea':
+      fieldHTML = `
+        <textarea 
+          id="${name}" 
+          name="${name}"
+          ${required ? 'required' : ''}
+          ${placeholder ? `placeholder="${placeholder}"` : ''}
+          rows="3"
+          class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none resize-none"
+          onchange="markFormDirty()"
+        ></textarea>
+      `;
+      break;
+      
+    case 'select':
+      fieldHTML = `
+        <select 
+          id="${name}" 
+          name="${name}"
+          ${required ? 'required' : ''}
+          class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+          onchange="markFormDirty()"
+        >
+          <option value="">请选择</option>
+          ${options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+        </select>
+      `;
+      break;
+      
+    case 'radio':
+      fieldHTML = `
+        <div class="flex items-center gap-6">
+          ${options.map(opt => `
+            <label class="flex items-center cursor-pointer">
+              <input 
+                type="radio" 
+                name="${name}" 
+                value="${opt}" 
+                ${required ? 'required' : ''}
+                class="mr-2"
+                onchange="markFormDirty(); toggleConditionNote('${name}')"
+              >
+              <span>${opt}</span>
+            </label>
+          `).join('')}
+        </div>
+        ${note ? `<p class="text-xs text-gray-500 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>${note}</p>` : ''}
+      `;
+      break;
+  }
+  
+  // 字段容器（某些字段占两列）
+  const colSpan = (type === 'textarea' || name.includes('_note')) ? 'md:col-span-2' : '';
+  
+  return `
+    <div class="${colSpan}">
+      <label class="block font-semibold mb-2 text-gray-700">
+        ${label} ${requiredMark}
+      </label>
+      ${fieldHTML}
+    </div>
+  `;
+}
+
+// ==========================================
+// 事件处理函数
+// ==========================================
+
+// 标记表单已修改
+window.markFormDirty = function() {
+  LISTING_STATE.isDirty = true;
+};
+
+// 切换条件说明字段显示
+window.toggleConditionNote = function(conditionName) {
+  const radio = document.querySelector(`input[name="${conditionName}"]:checked`);
+  if (!radio) return;
+  
+  const noteField = document.getElementById(conditionName + '_note');
+  if (noteField) {
+    const noteContainer = noteField.closest('div');
+    if (radio.value === '否') {
+      noteContainer.style.display = 'block';
+      noteField.required = true;
+    } else {
+      noteContainer.style.display = 'none';
+      noteField.required = false;
+      noteField.value = '';
+    }
+  }
+};
+
+// 保存草稿
+window.saveListingDraft = async function() {
+  try {
+    const formData = collectFormData();
+    
+    const response = await axios.post(
+      `/api/investment/projects/${INVESTMENT_STATE.projectId}/listing-info`, 
+      formData,
+      { headers: { 'Authorization': `Bearer ${STATE.token}` } }
+    );
+    
+    if (response.data.success) {
+      showAlert('草稿保存成功！', 'success');
+      LISTING_STATE.isDirty = false;
+    } else {
+      throw new Error(response.data.error);
+    }
+  } catch (error) {
+    console.error('保存草稿失败:', error);
+    showAlert('保存失败: ' + error.message, 'error');
+  }
+};
+
+// 提交挂牌信息
+window.submitListingInfo = async function() {
+  // 验证表单
+  const form = document.getElementById('listingForm');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+  
+  if (!confirm('确定要提交挂牌信息吗？提交后将进入审核流程。')) {
+    return;
+  }
+  
+  try {
+    const formData = collectFormData();
+    formData.is_submitted = true;
+    
+    const response = await axios.post(
+      `/api/investment/projects/${INVESTMENT_STATE.projectId}/listing-info`, 
+      formData,
+      { headers: { 'Authorization': `Bearer ${STATE.token}` } }
+    );
+    
+    if (response.data.success) {
+      showAlert('挂牌信息提交成功！', 'success');
+      LISTING_STATE.isDirty = false;
+      
+      // 刷新页面
+      await renderInvestmentPlanPage(INVESTMENT_STATE.projectId);
+    } else {
+      throw new Error(response.data.error);
+    }
+  } catch (error) {
+    console.error('提交失败:', error);
+    showAlert('提交失败: ' + error.message, 'error');
+  }
+};
+
+// 收集表单数据
+function collectFormData() {
+  const form = document.getElementById('listingForm');
+  const formData = new FormData(form);
+  const data = {};
+  
+  for (let [key, value] of formData.entries()) {
+    data[key] = value;
+  }
+  
+  return data;
+}
+
+// 加载已保存的表单数据
+async function loadListingData(projectId) {
+  try {
+    const response = await axios.get(
+      `/api/investment/projects/${projectId}/listing-info`,
+      { headers: { 'Authorization': `Bearer ${STATE.token}` } }
+    );
+    
+    if (response.data.success && response.data.data) {
+      LISTING_STATE.listingData = response.data.data;
+      // 页面渲染后填充数据
+      setTimeout(() => fillFormData(response.data.data), 100);
+    }
+  } catch (error) {
+    console.error('加载挂牌信息失败:', error);
+  }
+}
+
+// 填充表单数据
+function fillFormData(data) {
+  Object.keys(data).forEach(key => {
+    const element = document.getElementById(key);
+    if (element) {
+      if (element.type === 'radio') {
+        const radio = document.querySelector(`input[name="${key}"][value="${data[key]}"]`);
+        if (radio) radio.checked = true;
+      } else {
+        element.value = data[key] || '';
+      }
+    }
+  });
+}

@@ -380,3 +380,171 @@ app.get('/projects/:id/investment-plan', async (c) => {
 })
 
 export default app
+
+// ==========================================
+// 7. 保存/更新挂牌信息
+// ==========================================
+app.post('/projects/:id/listing-info', async (c) => {
+  try {
+    const projectId = c.req.param('id')
+    const db = c.env.DB
+    const body = await c.req.json()
+    
+    // 检查项目是否存在
+    const project = await db.prepare(`
+      SELECT id FROM projects WHERE id = ?
+    `).bind(projectId).first()
+    
+    if (!project) {
+      return c.json({ success: false, error: '项目不存在' }, 404)
+    }
+    
+    // 检查是否已存在记录
+    const existing = await db.prepare(`
+      SELECT id FROM listing_info WHERE project_id = ?
+    `).bind(projectId).first()
+    
+    const isSubmitted = body.is_submitted === true || body.is_submitted === 'true'
+    
+    if (existing) {
+      // 更新现有记录
+      await db.prepare(`
+        UPDATE listing_info 
+        SET company_name = ?,
+            registration_number = ?,
+            registered_address = ?,
+            establishment_date = ?,
+            business_format = ?,
+            business_intro = ?,
+            business_scope = ?,
+            legal_rep_name = ?,
+            legal_rep_id_type = ?,
+            legal_rep_id_number = ?,
+            legal_rep_address = ?,
+            legal_rep_email = ?,
+            legal_rep_phone = ?,
+            actual_controller_name = ?,
+            actual_controller_id_type = ?,
+            actual_controller_id_number = ?,
+            actual_controller_address = ?,
+            actual_controller_email = ?,
+            actual_controller_phone = ?,
+            beneficial_owner_name = ?,
+            beneficial_owner_id_type = ?,
+            beneficial_owner_id_number = ?,
+            beneficial_owner_address = ?,
+            beneficial_owner_email = ?,
+            beneficial_owner_phone = ?,
+            condition_1 = ?,
+            condition_1_note = ?,
+            condition_2 = ?,
+            condition_2_note = ?,
+            condition_3 = ?,
+            condition_4 = ?,
+            condition_5 = ?,
+            revenue_2026 = ?,
+            revenue_2027 = ?,
+            revenue_2028 = ?,
+            revenue_2029 = ?,
+            authorizer_name = ?,
+            authorizer_id_type = ?,
+            authorizer_id_number = ?,
+            authorizer_address = ?,
+            authorizer_email = ?,
+            authorizer_phone = ?,
+            is_submitted = ?,
+            submitted_at = ?,
+            updated_at = datetime('now')
+        WHERE project_id = ?
+      `).bind(
+        body.company_name, body.registration_number, body.registered_address, body.establishment_date,
+        body.business_format, body.business_intro, body.business_scope,
+        body.legal_rep_name, body.legal_rep_id_type, body.legal_rep_id_number,
+        body.legal_rep_address, body.legal_rep_email, body.legal_rep_phone,
+        body.actual_controller_name, body.actual_controller_id_type, body.actual_controller_id_number,
+        body.actual_controller_address, body.actual_controller_email, body.actual_controller_phone,
+        body.beneficial_owner_name, body.beneficial_owner_id_type, body.beneficial_owner_id_number,
+        body.beneficial_owner_address, body.beneficial_owner_email, body.beneficial_owner_phone,
+        body.condition_1, body.condition_1_note, body.condition_2, body.condition_2_note,
+        body.condition_3, body.condition_4, body.condition_5,
+        body.revenue_2026, body.revenue_2027, body.revenue_2028, body.revenue_2029,
+        body.authorizer_name, body.authorizer_id_type, body.authorizer_id_number,
+        body.authorizer_address, body.authorizer_email, body.authorizer_phone,
+        isSubmitted ? 1 : 0,
+        isSubmitted ? new Date().toISOString() : null,
+        projectId
+      ).run()
+    } else {
+      // 插入新记录
+      await db.prepare(`
+        INSERT INTO listing_info (
+          project_id, company_name, registration_number, registered_address, establishment_date,
+          business_format, business_intro, business_scope,
+          legal_rep_name, legal_rep_id_type, legal_rep_id_number, legal_rep_address, legal_rep_email, legal_rep_phone,
+          actual_controller_name, actual_controller_id_type, actual_controller_id_number,
+          actual_controller_address, actual_controller_email, actual_controller_phone,
+          beneficial_owner_name, beneficial_owner_id_type, beneficial_owner_id_number,
+          beneficial_owner_address, beneficial_owner_email, beneficial_owner_phone,
+          condition_1, condition_1_note, condition_2, condition_2_note,
+          condition_3, condition_4, condition_5,
+          revenue_2026, revenue_2027, revenue_2028, revenue_2029,
+          authorizer_name, authorizer_id_type, authorizer_id_number, authorizer_address, authorizer_email, authorizer_phone,
+          is_submitted, submitted_at
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+      `).bind(
+        projectId,
+        body.company_name, body.registration_number, body.registered_address, body.establishment_date,
+        body.business_format, body.business_intro, body.business_scope,
+        body.legal_rep_name, body.legal_rep_id_type, body.legal_rep_id_number,
+        body.legal_rep_address, body.legal_rep_email, body.legal_rep_phone,
+        body.actual_controller_name, body.actual_controller_id_type, body.actual_controller_id_number,
+        body.actual_controller_address, body.actual_controller_email, body.actual_controller_phone,
+        body.beneficial_owner_name, body.beneficial_owner_id_type, body.beneficial_owner_id_number,
+        body.beneficial_owner_address, body.beneficial_owner_email, body.beneficial_owner_phone,
+        body.condition_1, body.condition_1_note, body.condition_2, body.condition_2_note,
+        body.condition_3, body.condition_4, body.condition_5,
+        body.revenue_2026, body.revenue_2027, body.revenue_2028, body.revenue_2029,
+        body.authorizer_name, body.authorizer_id_type, body.authorizer_id_number,
+        body.authorizer_address, body.authorizer_email, body.authorizer_phone,
+        isSubmitted ? 1 : 0,
+        isSubmitted ? new Date().toISOString() : null
+      ).run()
+    }
+    
+    return c.json({
+      success: true,
+      message: isSubmitted ? '挂牌信息提交成功' : '草稿保存成功'
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// ==========================================
+// 8. 获取挂牌信息
+// ==========================================
+app.get('/projects/:id/listing-info', async (c) => {
+  try {
+    const projectId = c.req.param('id')
+    const db = c.env.DB
+    
+    const listingInfo = await db.prepare(`
+      SELECT * FROM listing_info WHERE project_id = ?
+    `).bind(projectId).first()
+    
+    if (!listingInfo) {
+      return c.json({ success: true, data: null })
+    }
+    
+    return c.json({
+      success: true,
+      data: listingInfo
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
