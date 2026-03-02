@@ -298,8 +298,9 @@ function renderScoringConfigPage() {
     </div>
   `;
   
-  // 加载类目树
+  // 加载类目树和配置
   loadCategoryTreeForThresholds();
+  loadSieveConfigFromServer();
 }
 
 function updateWeight(field, value) {
@@ -375,13 +376,14 @@ async function saveSieveConfig() {
   try {
     showAlert('保存配置中...', 'info');
     
-    // TODO: 调用API保存配置
-    // await axios.post('/api/admin/sieve-config', sieveConfig);
+    // 调用API保存配置
+    const response = await axios.post('/api/sieve/config', sieveConfig);
     
-    // 暂时只在前端保存
-    localStorage.setItem('sieve_config', JSON.stringify(sieveConfig));
-    
-    showAlert('配置保存成功！', 'success');
+    if (response.data.success) {
+      showAlert('配置保存成功！', 'success');
+    } else {
+      showAlert('保存失败：' + response.data.error, 'error');
+    }
   } catch (error) {
     showAlert('保存失败：' + error.message, 'error');
   }
@@ -391,6 +393,23 @@ async function saveSieveConfig() {
 
 let categoryTreeData = [];
 let currentThresholdData = null;
+
+async function loadSieveConfigFromServer() {
+  try {
+    const response = await axios.get('/api/sieve/config');
+    if (response.data.success) {
+      const config = response.data.data;
+      sieveConfig.weights = config.weights;
+      sieveConfig.k_values = config.k_values;
+      
+      // 重新渲染页面以应用新配置
+      renderScoringConfigPage();
+    }
+  } catch (error) {
+    console.error('加载配置失败:', error);
+    // 使用默认配置
+  }
+}
 
 async function loadCategoryTreeForThresholds() {
   try {
@@ -501,18 +520,22 @@ async function saveThresholdConfig() {
   try {
     showAlert('保存阈值中...', 'info');
     
-    // TODO: 调用API更新阈值
-    // await axios.put('/api/admin/thresholds', {
-    //   main_category: currentThresholdData.main,
-    //   level1_category: currentThresholdData.level1,
-    //   level2_category: currentThresholdData.level2,
-    //   net_roi_min: netRoi,
-    //   settle_roi_min: settleRoi,
-    //   settle_rate_min: settleRate,
-    //   history_spend_min: historySpend
-    // });
+    // 调用API更新阈值
+    const response = await axios.put('/api/sieve/thresholds', {
+      main_category: currentThresholdData.main,
+      level1_category: currentThresholdData.level1,
+      level2_category: currentThresholdData.level2,
+      net_roi_min: netRoi,
+      settle_roi_min: settleRoi,
+      settle_rate_min: settleRate,
+      history_spend_min: historySpend
+    });
     
-    showAlert('阈值保存成功！（功能开发中，暂未实际保存到数据库）', 'success');
+    if (response.data.success) {
+      showAlert('阈值保存成功！', 'success');
+    } else {
+      showAlert('保存失败：' + response.data.error, 'error');
+    }
   } catch (error) {
     showAlert('保存失败：' + error.message, 'error');
   }
@@ -529,13 +552,14 @@ async function saveSieveConfig() {
   try {
     showAlert('保存配置中...', 'info');
     
-    // TODO: 调用API保存配置
-    // await axios.post('/api/admin/sieve-config', sieveConfig);
+    // 调用API保存配置
+    const response = await axios.post('/api/sieve/config', sieveConfig);
     
-    // 暂时只在前端保存
-    localStorage.setItem('sieve_config', JSON.stringify(sieveConfig));
-    
-    showAlert('配置保存成功！', 'success');
+    if (response.data.success) {
+      showAlert('配置保存成功！', 'success');
+    } else {
+      showAlert('保存失败：' + response.data.error, 'error');
+    }
   } catch (error) {
     showAlert('保存失败：' + error.message, 'error');
   }

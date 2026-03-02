@@ -454,4 +454,109 @@ function calculateSieveScore(actual: any, thresholds: any) {
   }
 }
 
+// ==========================================
+// 6. 筛子系统配置管理
+// ==========================================
+
+// 获取筛子配置
+app.get('/config', async (c) => {
+  try {
+    const db = c.env.DB
+    
+    const weights = await db.prepare(`
+      SELECT config_data FROM sieve_system_config 
+      WHERE config_type = 'weights' 
+      ORDER BY id DESC LIMIT 1
+    `).first()
+    
+    const kValues = await db.prepare(`
+      SELECT config_data FROM sieve_system_config 
+      WHERE config_type = 'k_values' 
+      ORDER BY id DESC LIMIT 1
+    `).first()
+    
+    return c.json({
+      success: true,
+      data: {
+        weights: weights ? JSON.parse(weights.config_data as string) : {
+          net_roi: 0.20,
+          settle_roi: 0.35,
+          settle_rate: 0.30,
+          history_spend: 0.15
+        },
+        k_values: kValues ? JSON.parse(kValues.config_data as string) : {
+          net_roi: 3.0,
+          settle_roi: 4.0,
+          settle_rate: 4.0,
+          history_spend: 1.5
+        }
+      }
+    })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// 保存筛子配置
+app.post('/config', async (c) => {
+  try {
+    const db = c.env.DB
+    const { weights, k_values } = await c.req.json()
+    
+    // 验证权重总和
+    const total = Object.values(weights).reduce((sum: number, w: any) => sum + Number(w), 0)
+    if (Math.abs(total - 1.0) > 0.01) {
+      return c.json({ success: false, error: '权重总和必须等于100%' }, 400)
+    }
+    
+    // 保存权重配置
+    await db.prepare(`
+      INSERT INTO sieve_system_config (config_type, config_data)
+      VALUES ('weights', ?)
+    `).bind(JSON.stringify(weights)).run()
+    
+    // 保存k值配置
+    await db.prepare(`
+      INSERT INTO sieve_system_config (config_type, config_data)
+      VALUES ('k_values', ?)
+    `).bind(JSON.stringify(k_values)).run()
+    
+    return c.json({ success: true, message: '配置保存成功' })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
+// 更新阈值
+app.put('/thresholds', async (c) => {
+  try {
+    const db = c.env.DB
+    const { main_category, level1_category, level2_category, net_roi_min, settle_roi_min, settle_rate_min, history_spend_min } = await c.req.json()
+    
+    if (!main_category || !level1_category || !level2_category) {
+      return c.json({ success: false, error: '类目信息不完整' }, 400)
+    }
+    
+    // 更新阈值
+    const result = await db.prepare(`
+      UPDATE category_thresholds 
+      SET net_roi_min = ?, settle_roi_min = ?, settle_rate_min = ?, history_spend_min = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE main_category = ? AND level1_category = ? AND level2_category = ?
+        AND is_active = 1 AND version = 1
+    `).bind(
+      net_roi_min, settle_roi_min, settle_rate_min, history_spend_min,
+      main_category, level1_category, level2_category
+    ).run()
+    
+    if (result.meta.changes === 0) {
+      return c.json({ success: false, error: '未找到对应的阈值记录' }, 404)
+    }
+    
+    return c.json({ success: true, message: '阈值更新成功' })
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
 export default app
