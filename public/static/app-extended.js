@@ -22,6 +22,13 @@ function renderScoringConfigPage() {
     return;
   }
 
+  // 先加载配置，然后渲染页面
+  loadSieveConfigFromServer().then(() => {
+    renderConfigPageContent();
+  });
+}
+
+function renderConfigPageContent() {
   const app = document.getElementById('app');
   app.innerHTML = `
     <div class="min-h-screen bg-gray-50">
@@ -298,9 +305,8 @@ function renderScoringConfigPage() {
     </div>
   `;
   
-  // 加载类目树和配置
+  // 加载类目树
   loadCategoryTreeForThresholds();
-  loadSieveConfigFromServer();
 }
 
 function updateWeight(field, value) {
@@ -401,9 +407,6 @@ async function loadSieveConfigFromServer() {
       const config = response.data.data;
       sieveConfig.weights = config.weights;
       sieveConfig.k_values = config.k_values;
-      
-      // 重新渲染页面以应用新配置
-      renderScoringConfigPage();
     }
   } catch (error) {
     console.error('加载配置失败:', error);
