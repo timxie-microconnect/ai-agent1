@@ -686,7 +686,7 @@ async function renderProjectDetail(id) {
                     您的项目已通过审批，现在可以设计投资方案了！
                   </p>
                 </div>
-                <button onclick="Router.navigate('/investment-plan/${id}')" 
+                <button onclick="window.location.href='/investment-plan/${id}'" 
                         class="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-bold text-lg">
                   <i class="fas fa-chart-line mr-2"></i>查看/设计方案
                 </button>
