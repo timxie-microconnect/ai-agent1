@@ -204,7 +204,7 @@ app.post('/categories/get-thresholds', async (c) => {
 // ==========================================
 // 4. 准入检查（四项指标）
 // ==========================================
-app.post('/sieve/check-admission', async (c) => {
+app.post('/check-admission', async (c) => {
   try {
     const data = await c.req.json()
     const { 

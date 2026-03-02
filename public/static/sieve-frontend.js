@@ -35,7 +35,7 @@ const SIEVE_API = {
   },
   
   async checkAdmission(data) {
-    const response = await axios.post(`${this.baseURL}/admission/check`, data);
+    const response = await axios.post(`${this.baseURL}/check-admission`, data);
     return response.data;
   },
   
