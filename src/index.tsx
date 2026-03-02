@@ -1793,7 +1793,7 @@ app.get('/apply-financing', (c) => {
                     // 提交项目
                     const response = await axios.post('/api/projects', formData, {
                         headers: {
-                            'Authorization': token
+                            'Authorization': 'Bearer ' + token
                         }
                     });
                     
