@@ -181,6 +181,80 @@ app.post('/api/projects', authMiddleware, async (c) => {
   const submissionCode = generateSubmissionCode();
   
   try {
+    // 解析筛子类目数据
+    let categoryData: any = {}
+    if (body.selected_category_json) {
+      try {
+        categoryData = JSON.parse(body.selected_category_json)
+      } catch (e) {
+        console.error('Failed to parse category JSON:', e)
+      }
+    }
+    
+    // 准入检查（如果有筛子数据）
+    let admissionResult = null
+    let admissionDetails = null
+    if (categoryData.main && body.net_roi && body.settle_roi && body.settle_rate && body.history_spend) {
+      try {
+        // 获取阈值
+        const thresholdsResult = await DB.prepare(`
+          SELECT net_roi_min, settle_roi_min, settle_rate_min, history_spend_min 
+          FROM category_thresholds
+          WHERE main_category = ? 
+            AND (level1_category = ? OR level1_category IS NULL)
+            AND (level2_category = ? OR level2_category IS NULL)
+            AND is_active = 1 AND version = 1
+          ORDER BY 
+            CASE 
+              WHEN level2_category = ? THEN 1
+              WHEN level1_category = ? THEN 2
+              ELSE 3
+            END
+          LIMIT 1
+        `).bind(
+          categoryData.main,
+          categoryData.level1 || categoryData.main,
+          categoryData.level2 || categoryData.level1 || categoryData.main,
+          categoryData.level2,
+          categoryData.level1
+        ).first()
+        
+        if (thresholdsResult) {
+          const checks = {
+            net_roi: body.net_roi >= thresholdsResult.net_roi_min,
+            settle_roi: body.settle_roi >= thresholdsResult.settle_roi_min,
+            settle_rate: body.settle_rate >= thresholdsResult.settle_rate_min,
+            history_spend: body.history_spend >= (thresholdsResult.history_spend_min || 100000)
+          }
+          
+          const isAdmitted = Object.values(checks).every(v => v)
+          admissionResult = isAdmitted ? '可评分' : '未准入/不通过'
+          
+          // 生成未通过原因
+          const reasons = []
+          if (!checks.net_roi) {
+            reasons.push(`净成交ROI不足（实际${body.net_roi}，要求≥${thresholdsResult.net_roi_min}）`)
+          }
+          if (!checks.settle_roi) {
+            reasons.push(`14日结算ROI不足（实际${body.settle_roi}，要求≥${thresholdsResult.settle_roi_min}）`)
+          }
+          if (!checks.settle_rate) {
+            reasons.push(`14日订单结算率不足（实际${(body.settle_rate*100).toFixed(1)}%，要求≥${(thresholdsResult.settle_rate_min*100).toFixed(1)}%）`)
+          }
+          if (!checks.history_spend) {
+            reasons.push(`历史消耗额不足（实际${body.history_spend}元，要求≥${thresholdsResult.history_spend_min || 100000}元）`)
+          }
+          
+          admissionDetails = JSON.stringify({
+            checks,
+            fail_reasons: reasons
+          })
+        }
+      } catch (e) {
+        console.error('Admission check failed:', e)
+      }
+    }
+    
     // 插入项目主表
     const projectResult = await DB.prepare(`
       INSERT INTO projects (
@@ -194,12 +268,15 @@ app.post('/api/projects', authMiddleware, async (c) => {
         bank_name, bank_account, bank_address, invoice_type, tax_id, invoice_address, invoice_phone,
         total_amount, batch_count, batch_amount, first_amount, subsequent_amount,
         roi_target, roi_recovery_days, roi_maintain_days, profit_share, annual_rate,
-        repayment_frequency, repayment_rules
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        repayment_frequency, repayment_rules,
+        main_category, level1_category, level2_category, 
+        net_roi, settle_roi, settle_rate, history_spend,
+        admission_result, admission_details
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       user.userId, submissionCode, 'pending',
       body.step1?.isSameEntity || null, body.step1?.hasIncomeSharing || null, body.step1?.relationshipType || null, body.step1?.fundUsage || null,
-      body.step2?.companyName || null, body.step2?.creditCode || null, body.step2?.address || null, body.step2?.establishedDate || null, body.step2?.industry || null,
+      body.step2?.companyName || body.projectName || null, body.step2?.creditCode || null, body.step2?.address || null, body.step2?.establishedDate || null, body.step2?.industry || null,
       body.step2?.introduction || null, body.step2?.businessScope || null, body.step2?.businessDescription || null,
       body.step2?.productCategory || null, body.step2?.roi || null, body.step2?.returnRate || null, body.step2?.profitRate || null, body.step2?.shopScore || null, body.step2?.operationMonths || null,
       body.step3?.companyName || null, body.step3?.creditCode || null, body.step3?.address || null, body.step3?.introduction || null, body.step3?.shopModel || null,
@@ -207,7 +284,10 @@ app.post('/api/projects', authMiddleware, async (c) => {
       body.step7?.bankName || null, body.step7?.bankAccount || null, body.step7?.bankAddress || null, body.step7?.invoiceType || null, body.step7?.taxId || null, body.step7?.invoiceAddress || null, body.step7?.invoicePhone || null,
       body.step9?.totalAmount || null, body.step9?.batchCount || null, body.step9?.batchAmount || null, body.step9?.firstAmount || null, body.step9?.subsequentAmount || null,
       body.step9?.roiTarget || null, body.step9?.roiRecoveryDays || null, body.step9?.roiMaintainDays || null, body.step9?.profitShare || null, body.step9?.annualRate || null,
-      body.step9?.repaymentFrequency || null, body.step9?.repaymentRules || null
+      body.step9?.repaymentFrequency || null, body.step9?.repaymentRules || null,
+      categoryData.main || null, categoryData.level1 || null, categoryData.level2 || null,
+      body.net_roi || null, body.settle_roi || null, body.settle_rate || null, body.history_spend || null,
+      admissionResult, admissionDetails
     ).run();
     
     const projectId = projectResult.meta.last_row_id;

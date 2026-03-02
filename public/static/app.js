@@ -739,16 +739,41 @@ async function renderAdminDashboard() {
                 <tr>
                   <th class="text-left py-3 px-4">提交编号</th>
                   <th class="text-left py-3 px-4">企业名称</th>
-                  <th class="text-left py-3 px-4">状态</th>
+                  <th class="text-left py-3 px-4">经营类目</th>
+                  <th class="text-left py-3 px-4">准入状态</th>
+                  <th class="text-left py-3 px-4">筛子评分</th>
+                  <th class="text-left py-3 px-4">项目状态</th>
                   <th class="text-left py-3 px-4">创建时间</th>
                   <th class="text-left py-3 px-4">操作</th>
                 </tr>
               </thead>
               <tbody>
-                ${STATE.allProjects.map((p, i) => `
+                ${STATE.allProjects.map((p, i) => {
+                  // 构建类目路径
+                  const categoryPath = [p.main_category, p.level1_category, p.level2_category]
+                    .filter(Boolean).join(' > ') || '未填写';
+                  
+                  // 准入状态徽章
+                  const admissionBadge = p.admission_result === '可评分' 
+                    ? '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full"><i class="fas fa-check-circle mr-1"></i>可评分</span>'
+                    : p.admission_result === '未准入/不通过'
+                    ? '<span class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full"><i class="fas fa-times-circle mr-1"></i>未准入</span>'
+                    : '<span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">-</span>';
+                  
+                  // 筛子评分显示
+                  const sieveScore = p.sieve_score != null
+                    ? `<span class="font-bold ${p.sieve_score >= 60 ? 'text-green-600' : 'text-red-600'}">${p.sieve_score}分</span>`
+                    : '<span class="text-gray-400">未评分</span>';
+                  
+                  return `
                   <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50">
                     <td class="py-3 px-4 text-sm">${p.submissionCode}</td>
                     <td class="py-3 px-4 font-semibold">${p.projectName || '未命名'}</td>
+                    <td class="py-3 px-4 text-sm">
+                      <div class="max-w-xs truncate" title="${categoryPath}">${categoryPath}</div>
+                    </td>
+                    <td class="py-3 px-4">${admissionBadge}</td>
+                    <td class="py-3 px-4">${sieveScore}</td>
                     <td class="py-3 px-4">${getStatusBadge(p.status, p.statusText)}</td>
                     <td class="py-3 px-4 text-sm">${p.createdAt}</td>
                     <td class="py-3 px-4">
@@ -757,7 +782,8 @@ async function renderAdminDashboard() {
                       </button>
                     </td>
                   </tr>
-                `).join('')}
+                `;
+                }).join('')}
               </tbody>
             </table>
           </div>
@@ -791,12 +817,139 @@ window.openAdminProjectModal = async function(id) {
         </div>
         
         <div class="p-6 space-y-6">
+          <!-- 基本信息 -->
           <div class="bg-gray-50 p-4 rounded">
-            <h3 class="font-bold mb-2">基本信息</h3>
-            <p><span class="font-semibold">提交编号：</span>${project.submission_code}</p>
-            <p><span class="font-semibold">企业名称：</span>${project.company_name_a}</p>
-            <p><span class="font-semibold">状态：</span>${getStatusBadge(project.status, project.statusText)}</p>
+            <h3 class="font-bold mb-3 text-lg">基本信息</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <p><span class="font-semibold">提交编号：</span>${project.submission_code}</p>
+              <p><span class="font-semibold">企业名称：</span>${project.company_name_a}</p>
+              <p><span class="font-semibold">项目状态：</span>${getStatusBadge(project.status, project.statusText)}</p>
+              <p><span class="font-semibold">创建时间：</span>${project.created_at}</p>
+            </div>
           </div>
+          
+          <!-- 筛子系统信息 -->
+          ${project.main_category ? `
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded">
+              <h3 class="font-bold mb-3 text-lg flex items-center">
+                <i class="fas fa-filter text-blue-600 mr-2"></i>
+                筛子系统信息
+              </h3>
+              
+              <!-- 类目路径 -->
+              <div class="mb-4">
+                <label class="text-sm font-semibold text-gray-700">经营类目：</label>
+                <div class="mt-1 text-sm">
+                  ${[project.main_category, project.level1_category, project.level2_category]
+                    .filter(Boolean).join(' > ')}
+                </div>
+              </div>
+              
+              <!-- 准入状态 -->
+              <div class="mb-4">
+                <label class="text-sm font-semibold text-gray-700">准入状态：</label>
+                <div class="mt-2">
+                  ${project.admission_result === '可评分' 
+                    ? '<span class="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full"><i class="fas fa-check-circle mr-1"></i>可评分</span>'
+                    : project.admission_result === '未准入/不通过'
+                    ? '<span class="px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full"><i class="fas fa-times-circle mr-1"></i>未准入/不通过</span>'
+                    : '<span class="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">未检查</span>'
+                  }
+                </div>
+              </div>
+              
+              <!-- 经营数据 -->
+              <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="bg-white p-3 rounded">
+                  <div class="text-gray-600 text-xs">净成交ROI</div>
+                  <div class="font-bold text-lg">${project.net_roi || '-'}</div>
+                </div>
+                <div class="bg-white p-3 rounded">
+                  <div class="text-gray-600 text-xs">14日结算ROI</div>
+                  <div class="font-bold text-lg">${project.settle_roi || '-'}</div>
+                </div>
+                <div class="bg-white p-3 rounded">
+                  <div class="text-gray-600 text-xs">14日订单结算率</div>
+                  <div class="font-bold text-lg">${project.settle_rate ? (project.settle_rate * 100).toFixed(2) + '%' : '-'}</div>
+                </div>
+                <div class="bg-white p-3 rounded">
+                  <div class="text-gray-600 text-xs">历史消耗</div>
+                  <div class="font-bold text-lg">¥${project.history_spend ? project.history_spend.toLocaleString() : '-'}</div>
+                </div>
+              </div>
+              
+              <!-- 准入详情（未通过时显示原因）-->
+              ${project.admission_result === '未准入/不通过' && project.admission_details ? `
+                <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+                  <div class="text-sm font-semibold text-red-800 mb-2">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>未通过原因：
+                  </div>
+                  <div class="text-sm text-red-700">
+                    ${(() => {
+                      try {
+                        const details = JSON.parse(project.admission_details);
+                        return details.fail_reasons ? details.fail_reasons.join('；') : '数据未达标';
+                      } catch (e) {
+                        return '数据未达标';
+                      }
+                    })()}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+          
+          <!-- 筛子评分按钮 -->
+          ${project.admission_result === '可评分' && !project.sieve_score ? `
+            <div id="sieveScoreSection">
+              <button onclick="handleSieveScore(${id})" class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg text-lg font-bold">
+                <i class="fas fa-calculator mr-2"></i>筛子智能评分
+              </button>
+            </div>
+          ` : project.sieve_score != null ? `
+            <!-- 筛子评分结果 -->
+            <div class="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg p-6">
+              <h3 class="text-xl font-bold mb-4 text-purple-900">
+                <i class="fas fa-award mr-2"></i>筛子评分结果
+              </h3>
+              <div class="text-center mb-4">
+                <div class="text-6xl font-bold ${project.sieve_score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                  ${project.sieve_score}
+                </div>
+                <div class="text-sm text-gray-600 mt-1">总分（满分100）</div>
+                <div class="text-xl mt-2 ${project.sieve_score >= 60 ? 'text-green-600' : 'text-red-600'}">
+                  ${project.sieve_score >= 60 ? '✅ 评分通过' : '❌ 评分未达标'}
+                </div>
+              </div>
+              
+              ${project.sieve_score_details ? `
+                <div class="mt-4 space-y-2">
+                  ${(() => {
+                    try {
+                      const details = JSON.parse(project.sieve_score_details);
+                      return details.details ? details.details.map(d => `
+                        <div class="bg-white p-3 rounded flex justify-between items-center">
+                          <div>
+                            <div class="font-semibold text-sm">${d.field_name}</div>
+                            <div class="text-xs text-gray-600">
+                              实际: ${d.actual_display} | 阈值: ${d.threshold_display} | 提升: +${(d.uplift * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                          <div class="text-lg font-bold text-blue-600">${d.sub_score.toFixed(1)}分</div>
+                        </div>
+                      `).join('') : '';
+                    } catch (e) {
+                      return '';
+                    }
+                  })()}
+                </div>
+              ` : ''}
+              
+              <button onclick="handleSieveScore(${id})" class="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                <i class="fas fa-redo mr-2"></i>重新评分
+              </button>
+            </div>
+          ` : ''}
           
           ${!project.scoring ? `
             <div id="scoringSection">
@@ -888,6 +1041,28 @@ window.handleScoreProject = async function(id) {
     refreshAdminProjects();
   } catch (error) {
     showAlert(error.message, 'error');
+  }
+};
+
+// 筛子评分处理函数
+window.handleSieveScore = async function(id) {
+  try {
+    showAlert('正在计算筛子评分...', 'info');
+    
+    // 调用筛子评分API
+    const result = await axios.post(`/api/sieve/scoring/calculate/${id}`);
+    
+    if (result.data.success) {
+      const score = result.data.data.total_score;
+      showAlert(`筛子评分完成：${score.toFixed(1)}分 ${score >= 60 ? '✅ 通过' : '❌ 未达标'}`, 'success');
+      
+      document.getElementById('adminModal').remove();
+      refreshAdminProjects();
+    } else {
+      showAlert(result.data.error || '评分失败', 'error');
+    }
+  } catch (error) {
+    showAlert(error.response?.data?.error || error.message || '评分失败', 'error');
   }
 };
 
