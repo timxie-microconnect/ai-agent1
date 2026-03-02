@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试页面 - 检查代码部署</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <h1 class="text-2xl font-bold mb-6">🔍 系统部署检查</h1>
+        
+        <div class="space-y-4">
+            <div class="border-b pb-4">
+                <h2 class="font-semibold mb-2">1. 静态文件检查</h2>
+                <button onclick="checkStatic()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    检查 app.js
+                </button>
+                <div id="static-result" class="mt-2 text-sm"></div>
+            </div>
+            
+            <div class="border-b pb-4">
+                <h2 class="font-semibold mb-2">2. 函数检查</h2>
+                <button onclick="checkFunction()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                    检查 navigateToInvestmentPlan
+                </button>
+                <div id="function-result" class="mt-2 text-sm"></div>
+            </div>
+            
+            <div class="border-b pb-4">
+                <h2 class="font-semibold mb-2">3. 投资方案API检查</h2>
+                <button onclick="checkAPI()" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                    检查 API
+                </button>
+                <div id="api-result" class="mt-2 text-sm"></div>
+            </div>
+            
+            <div class="pb-4">
+                <h2 class="font-semibold mb-2">4. 测试导航</h2>
+                <button onclick="testNav()" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+                    跳转到投资方案页面
+                </button>
+                <div id="nav-result" class="mt-2 text-sm"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/app.js"></script>
+    <script>
+        async function checkStatic() {
+            const result = document.getElementById('static-result');
+            result.innerHTML = '检查中...';
+            
+            try {
+                const response = await fetch('/static/app.js?t=' + Date.now());
+                const text = await response.text();
+                const hasFunction = text.includes('navigateToInvestmentPlan');
+                const hasButton = text.includes('设计投资方案');
+                
+                result.innerHTML = `
+                    <div class="${hasFunction && hasButton ? 'text-green-600' : 'text-red-600'}">
+                        ✓ 文件大小: ${(text.length / 1024).toFixed(2)} KB<br>
+                        ${hasFunction ? '✅' : '❌'} 找到 navigateToInvestmentPlan 函数<br>
+                        ${hasButton ? '✅' : '❌'} 找到 "设计投资方案" 按钮代码
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = '<div class="text-red-600">❌ 错误: ' + error.message + '</div>';
+            }
+        }
+        
+        function checkFunction() {
+            const result = document.getElementById('function-result');
+            const exists = typeof window.navigateToInvestmentPlan === 'function';
+            
+            result.innerHTML = exists 
+                ? '<div class="text-green-600">✅ 函数存在且可用！</div>'
+                : '<div class="text-red-600">❌ 函数不存在 - 请刷新页面或清除缓存</div>';
+        }
+        
+        async function checkAPI() {
+            const result = document.getElementById('api-result');
+            result.innerHTML = '检查中...';
+            
+            try {
+                const response = await axios.get('/api/investment/config');
+                result.innerHTML = `
+                    <div class="text-green-600">
+                        ✅ API正常<br>
+                        联营期限: ${response.data.data.maxPartnershipDays}天<br>
+                        年化收益率: ${JSON.stringify(response.data.data.annualRates)}
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = '<div class="text-red-600">❌ API错误: ' + error.message + '</div>';
+            }
+        }
+        
+        function testNav() {
+            const result = document.getElementById('nav-result');
+            if (typeof window.navigateToInvestmentPlan === 'function') {
+                result.innerHTML = '<div class="text-blue-600">正在跳转...</div>';
+                setTimeout(() => {
+                    window.location.href = '/investment-plan/24';
+                }, 1000);
+            } else {
+                result.innerHTML = '<div class="text-red-600">❌ 函数不存在，无法跳转</div>';
+            }
+        }
+    </script>
+</body>
+</html>

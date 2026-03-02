@@ -31,43 +31,51 @@ interface ScoringRule {
   weight_settle_roi: number
   weight_settle_rate: number
   weight_history_spend: number
+  weight_volatility: number
   k_net_roi: number
   k_settle_roi: number
   k_settle_rate: number
   k_history_spend: number
+  k_volatility: number
 }
 
 const DEFAULT_SCORING_RULE: ScoringRule = {
-  weight_net_roi: 20,
-  weight_settle_roi: 35,
-  weight_settle_rate: 30,
+  weight_net_roi: 15,
+  weight_settle_roi: 25,
+  weight_settle_rate: 25,
   weight_history_spend: 15,
+  weight_volatility: 20,
   k_net_roi: 3,
   k_settle_roi: 4,
   k_settle_rate: 4,
-  k_history_spend: 1.5
+  k_history_spend: 1.5,
+  k_volatility: 2.0
 }
 
 function calculateSieveScore(
-  actual: {net_roi: number, settle_roi: number, settle_rate: number, history_spend: number},
-  thresholds: {net_roi_min: number, settle_roi_min: number, settle_rate_min: number, history_spend_min: number},
+  actual: {net_roi: number, settle_roi: number, settle_rate: number, history_spend: number, volatility: number},
+  thresholds: {net_roi_min: number, settle_roi_min: number, settle_rate_min: number, history_spend_min: number, volatility_max: number},
   rule: ScoringRule
 ) {
   const u_net = calculateUplift(actual.net_roi, thresholds.net_roi_min, 'ratio')
   const u_settle = calculateUplift(actual.settle_roi, thresholds.settle_roi_min, 'ratio')
   const u_sr = calculateUplift(actual.settle_rate, thresholds.settle_rate_min, 'settle_rate')
   const u_spend = calculateUplift(actual.history_spend, thresholds.history_spend_min, 'spend')
+  // 波动率：越低越好，所以uplift = max(0, (threshold - actual) / threshold)
+  const u_volatility = Math.max(0, (thresholds.volatility_max - actual.volatility) / thresholds.volatility_max)
   
   const s_net = calculateSubScore(u_net, rule.k_net_roi)
   const s_settle = calculateSubScore(u_settle, rule.k_settle_roi)
   const s_sr = calculateSubScore(u_sr, rule.k_settle_rate)
   const s_spend = calculateSubScore(u_spend, rule.k_history_spend)
+  const s_volatility = calculateSubScore(u_volatility, rule.k_volatility)
   
   const totalScore = 
     (rule.weight_net_roi / 100) * s_net +
     (rule.weight_settle_roi / 100) * s_settle +
     (rule.weight_settle_rate / 100) * s_sr +
-    (rule.weight_history_spend / 100) * s_spend
+    (rule.weight_history_spend / 100) * s_spend +
+    (rule.weight_volatility / 100) * s_volatility
   
   return {
     total_score: Math.round(totalScore * 10) / 10,
@@ -78,7 +86,9 @@ function calculateSieveScore(
     settle_rate_score: Math.round(s_sr * 10) / 10,
     settle_rate_uplift: Math.round(u_sr * 1000) / 1000,
     history_spend_score: Math.round(s_spend * 10) / 10,
-    history_spend_uplift: Math.round(u_spend * 1000) / 1000
+    history_spend_uplift: Math.round(u_spend * 1000) / 1000,
+    volatility_score: Math.round(s_volatility * 10) / 10,
+    volatility_uplift: Math.round(u_volatility * 1000) / 1000
   }
 }
 
@@ -406,14 +416,16 @@ app.post('/scoring/calculate/:projectId', async (c) => {
         // 处理权重配置
         if (configResult.config_type === 'weights') {
           scoringRule = {
-            weight_net_roi: (configData.net_roi || 0.2) * 100,
-            weight_settle_roi: (configData.settle_roi || 0.35) * 100,
-            weight_settle_rate: (configData.settle_rate || 0.3) * 100,
+            weight_net_roi: (configData.net_roi || 0.15) * 100,
+            weight_settle_roi: (configData.settle_roi || 0.25) * 100,
+            weight_settle_rate: (configData.settle_rate || 0.25) * 100,
             weight_history_spend: (configData.history_spend || 0.15) * 100,
+            weight_volatility: (configData.volatility || 0.20) * 100,
             k_net_roi: DEFAULT_SCORING_RULE.k_net_roi,
             k_settle_roi: DEFAULT_SCORING_RULE.k_settle_roi,
             k_settle_rate: DEFAULT_SCORING_RULE.k_settle_rate,
-            k_history_spend: DEFAULT_SCORING_RULE.k_history_spend
+            k_history_spend: DEFAULT_SCORING_RULE.k_history_spend,
+            k_volatility: DEFAULT_SCORING_RULE.k_volatility
           }
         }
       } catch (e) {
@@ -427,13 +439,15 @@ app.post('/scoring/calculate/:projectId', async (c) => {
       net_roi: project.net_roi,
       settle_roi: project.settle_roi,
       settle_rate: project.settle_rate,
-      history_spend: project.history_spend
+      history_spend: project.history_spend,
+      volatility: project.daily_revenue_volatility
     })
     console.log('阈值数据:', {
       net_roi_min: thresholdsResult.net_roi_min,
       settle_roi_min: thresholdsResult.settle_roi_min,
       settle_rate_min: thresholdsResult.settle_rate_min,
-      history_spend_min: thresholdsResult.history_spend_min
+      history_spend_min: thresholdsResult.history_spend_min,
+      volatility_max: thresholdsResult.volatility_max
     })
     console.log('评分规则:', scoringRule)
     
@@ -442,13 +456,15 @@ app.post('/scoring/calculate/:projectId', async (c) => {
         net_roi: project.net_roi as number,
         settle_roi: project.settle_roi as number,
         settle_rate: project.settle_rate as number,
-        history_spend: project.history_spend as number
+        history_spend: project.history_spend as number,
+        volatility: (project.daily_revenue_volatility as number) || 0
       },
       {
         net_roi_min: thresholdsResult.net_roi_min as number,
         settle_roi_min: thresholdsResult.settle_roi_min as number,
         settle_rate_min: thresholdsResult.settle_rate_min as number,
-        history_spend_min: (thresholdsResult.history_spend_min as number) || 100000
+        history_spend_min: (thresholdsResult.history_spend_min as number) || 100000,
+        volatility_max: (thresholdsResult.volatility_max as number) || 0.15
       },
       scoringRule
     )
@@ -501,6 +517,17 @@ app.post('/scoring/calculate/:projectId', async (c) => {
         base_score: scoringResult.history_spend_score,
         weight: scoringRule.weight_history_spend / 100,
         sub_score: (scoringRule.weight_history_spend / 100) * scoringResult.history_spend_score
+      },
+      {
+        field_name: '90天净成交波动率',
+        actual_value: project.daily_revenue_volatility,
+        threshold_value: thresholdsResult.volatility_max || 0.15,
+        actual_display: `${((project.daily_revenue_volatility as number || 0) * 100).toFixed(2)}%`,
+        threshold_display: `≤${((thresholdsResult.volatility_max as number || 0.15) * 100).toFixed(2)}%`,
+        uplift: scoringResult.volatility_uplift,
+        base_score: scoringResult.volatility_score,
+        weight: scoringRule.weight_volatility / 100,
+        sub_score: (scoringRule.weight_volatility / 100) * scoringResult.volatility_score
       }
     ]
     
