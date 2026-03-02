@@ -4,6 +4,7 @@ import { serveStatic } from 'hono/cloudflare-workers';
 import { calculateScore } from './scoring';
 import { generateSubmissionCode, formatDateTime, getStatusText, getStatusColor, createSimpleToken, verifySimpleToken } from './utils';
 import adminExtendedApi from './api-admin-extended';
+import sieveApi from './api-sieve';
 
 type Bindings = {
   DB: D1Database;
@@ -786,6 +787,9 @@ app.get('/nav', (c) => {
                 <a href="/admin/login" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition">
                     <i class="fas fa-user-shield mr-1"></i>管理员登录
                 </a>
+                <a href="/sieve-demo" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm hover:shadow-lg transition">
+                    <i class="fas fa-filter mr-1"></i>🔥 筛子系统演示
+                </a>
             </div>
         </div>
 
@@ -796,6 +800,280 @@ app.get('/nav', (c) => {
 </body>
 </html>`;
   return c.html(html);
+});
+
+// 筛子系统演示页面
+app.get('/sieve-demo', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>筛子评分系统演示</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-50">
+        <div class="max-w-7xl mx-auto p-8">
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-filter text-blue-600 mr-2"></i>
+                    抖店投流垫资准入筛子 + 智能评分系统
+                </h1>
+                <p class="text-gray-600">基于1487个二级类目精确阈值的准入与评分系统</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-sitemap text-green-600 mr-2"></i>
+                        类目结构
+                    </h2>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between p-2 bg-gray-50 rounded">
+                            <span>主营类目</span>
+                            <span class="font-bold text-blue-600">13个</span>
+                        </div>
+                        <div class="flex justify-between p-2 bg-gray-50 rounded">
+                            <span>一级类目</span>
+                            <span class="font-bold text-blue-600">111个</span>
+                        </div>
+                        <div class="flex justify-between p-2 bg-gray-50 rounded">
+                            <span>二级类目</span>
+                            <span class="font-bold text-blue-600">1393个</span>
+                        </div>
+                        <div class="flex justify-between p-2 bg-green-50 rounded">
+                            <span class="font-bold">精确阈值记录</span>
+                            <span class="font-bold text-green-600">1487条</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-sliders-h text-purple-600 mr-2"></i>
+                        四个筛子指标
+                    </h2>
+                    <div class="space-y-3">
+                        <div class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+                            <div>
+                                <div class="font-semibold">净成交ROI</div>
+                                <div class="text-sm text-gray-600">近90天实际ROI值</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+                            <div>
+                                <div class="font-semibold">14日结算ROI</div>
+                                <div class="text-sm text-gray-600">回款安全核心指标</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+                            <div>
+                                <div class="font-semibold">14日订单结算率</div>
+                                <div class="text-sm text-gray-600">资金周转效率（%）</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+                            <div>
+                                <div class="font-semibold">历史消耗额</div>
+                                <div class="text-sm text-gray-600">累计投流规模（≥10万）</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-flask text-blue-600 mr-2"></i>
+                    API测试工具
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">1. 搜索类目</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="searchKeyword" placeholder="输入关键词（如：水果、女装）" 
+                                   class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <button onclick="searchCategories()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                <i class="fas fa-search mr-2"></i>搜索
+                            </button>
+                        </div>
+                        <div id="searchResult" class="mt-2 text-sm"></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">2. 获取类目阈值</label>
+                        <div class="grid grid-cols-3 gap-2 mb-2">
+                            <input type="text" id="mainCat" placeholder="主营类目" class="px-3 py-2 border rounded-lg">
+                            <input type="text" id="level1Cat" placeholder="一级类目（可选）" class="px-3 py-2 border rounded-lg">
+                            <input type="text" id="level2Cat" placeholder="二级类目（可选）" class="px-3 py-2 border rounded-lg">
+                        </div>
+                        <button onclick="getThresholds()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                            <i class="fas fa-cogs mr-2"></i>获取阈值（支持兜底）
+                        </button>
+                        <div id="thresholdResult" class="mt-2 text-sm"></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">3. 准入检查</label>
+                        <div class="grid grid-cols-4 gap-2 mb-2">
+                            <input type="number" id="netRoi" placeholder="净成交ROI" step="0.01" class="px-3 py-2 border rounded-lg">
+                            <input type="number" id="settleRoi" placeholder="14日结算ROI" step="0.01" class="px-3 py-2 border rounded-lg">
+                            <input type="number" id="settleRate" placeholder="结算率（%）" class="px-3 py-2 border rounded-lg">
+                            <input type="number" id="historySpend" placeholder="历史消耗额" class="px-3 py-2 border rounded-lg">
+                        </div>
+                        <button onclick="checkAdmission()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                            <i class="fas fa-check-double mr-2"></i>检查准入
+                        </button>
+                        <div id="admissionResult" class="mt-2 text-sm"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow p-6 text-white">
+                <h3 class="text-lg font-bold mb-2">系统状态</h3>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <i class="fas fa-check-circle mr-2"></i>数据库：✅ 1487条阈值已导入
+                    </div>
+                    <div>
+                        <i class="fas fa-check-circle mr-2"></i>后端API：✅ 4个端点就绪
+                    </div>
+                    <div>
+                        <i class="fas fa-check-circle mr-2"></i>评分算法：✅ 方案A实现
+                    </div>
+                    <div>
+                        <i class="fas fa-clock mr-2"></i>前端表单：⏳ 待集成
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script>
+            const API_BASE = window.location.origin;
+            
+            async function searchCategories() {
+                const keyword = document.getElementById('searchKeyword').value;
+                const resultDiv = document.getElementById('searchResult');
+                
+                if (!keyword) {
+                    resultDiv.innerHTML = '<div class="text-red-600">请输入搜索关键词</div>';
+                    return;
+                }
+                
+                try {
+                    const res = await axios.get(\`\${API_BASE}/api/sieve/categories/search?q=\${keyword}\`);
+                    if (res.data.success && res.data.data.length > 0) {
+                        resultDiv.innerHTML = \`
+                            <div class="bg-green-50 border border-green-200 rounded p-3">
+                                <div class="font-semibold text-green-800 mb-2">找到 \${res.data.data.length} 个类目：</div>
+                                <div class="space-y-1">
+                                    \${res.data.data.slice(0, 10).map(item => \`
+                                        <div class="text-gray-700">\${item.path}</div>
+                                    \`).join('')}
+                                </div>
+                            </div>
+                        \`;
+                    } else {
+                        resultDiv.innerHTML = '<div class="text-gray-600">未找到匹配的类目</div>';
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = \`<div class="text-red-600">错误：\${error.message}</div>\`;
+                }
+            }
+            
+            async function getThresholds() {
+                const main = document.getElementById('mainCat').value;
+                const level1 = document.getElementById('level1Cat').value;
+                const level2 = document.getElementById('level2Cat').value;
+                const resultDiv = document.getElementById('thresholdResult');
+                
+                if (!main) {
+                    resultDiv.innerHTML = '<div class="text-red-600">请至少填写主营类目</div>';
+                    return;
+                }
+                
+                try {
+                    const res = await axios.post(\`\${API_BASE}/api/sieve/categories/get-thresholds\`, {
+                        main_category: main,
+                        level1_category: level1 || null,
+                        level2_category: level2 || null
+                    });
+                    
+                    if (res.data.success) {
+                        const data = res.data.data;
+                        resultDiv.innerHTML = \`
+                            <div class="bg-blue-50 border border-blue-200 rounded p-3">
+                                <div class="font-semibold text-blue-800 mb-2">阈值配置（\${data.threshold_level}）：</div>
+                                <div class="grid grid-cols-2 gap-2 text-gray-700">
+                                    <div>净成交ROI ≥ \${data.net_roi_min}</div>
+                                    <div>14日结算ROI ≥ \${data.settle_roi_min}</div>
+                                    <div>14日结算率 ≥ \${(data.settle_rate_min * 100).toFixed(1)}%</div>
+                                    <div>历史消耗额 ≥ \${data.history_spend_min}元</div>
+                                </div>
+                            </div>
+                        \`;
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = \`<div class="text-red-600">错误：\${error.response?.data?.error || error.message}</div>\`;
+                }
+            }
+            
+            async function checkAdmission() {
+                const main = document.getElementById('mainCat').value;
+                const netRoi = parseFloat(document.getElementById('netRoi').value);
+                const settleRoi = parseFloat(document.getElementById('settleRoi').value);
+                const settleRate = parseFloat(document.getElementById('settleRate').value) / 100;
+                const historySpend = parseInt(document.getElementById('historySpend').value);
+                const resultDiv = document.getElementById('admissionResult');
+                
+                if (!main || isNaN(netRoi) || isNaN(settleRoi) || isNaN(settleRate) || isNaN(historySpend)) {
+                    resultDiv.innerHTML = '<div class="text-red-600">请填写完整的类目和四项指标</div>';
+                    return;
+                }
+                
+                try {
+                    const res = await axios.post(\`\${API_BASE}/api/sieve/check-admission\`, {
+                        main_category: main,
+                        level1_category: document.getElementById('level1Cat').value || null,
+                        level2_category: document.getElementById('level2Cat').value || null,
+                        net_roi: netRoi,
+                        settle_roi: settleRoi,
+                        settle_rate: settleRate,
+                        history_spend: historySpend
+                    });
+                    
+                    if (res.data.success) {
+                        const data = res.data.data;
+                        const admitted = data.is_admitted;
+                        resultDiv.innerHTML = \`
+                            <div class="bg-\${admitted ? 'green' : 'red'}-50 border border-\${admitted ? 'green' : 'red'}-200 rounded p-3">
+                                <div class="font-semibold text-\${admitted ? 'green' : 'red'}-800 mb-2">
+                                    \${admitted ? '✅ 通过准入' : '❌ 未通过准入'}
+                                </div>
+                                \${!admitted ? \`
+                                    <div class="text-red-700 text-xs space-y-1">
+                                        \${data.reasons.map(r => \`<div>• \${r}</div>\`).join('')}
+                                    </div>
+                                \` : '<div class="text-green-700">所有指标均满足阈值要求</div>'}
+                            </div>
+                        \`;
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = \`<div class="text-red-600">错误：\${error.response?.data?.error || error.message}</div>\`;
+                }
+            }
+        </script>
+    </body>
+    </html>
+  `);
 });
 
 // 主页（10步表单）
@@ -932,5 +1210,8 @@ app.get('/admin', (c) => {
 
 // 挂载扩展管理员API
 app.route('/api/admin', adminExtendedApi);
+
+// 挂载筛子评分API
+app.route('/api/sieve', sieveApi);
 
 export default app;
