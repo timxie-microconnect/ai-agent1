@@ -960,32 +960,6 @@ window.openAdminProjectModal = async function(id) {
             </div>
           ` : ''}
           
-          ${!project.scoring ? `
-            <div id="scoringSection">
-              <button onclick="handleScoreProject(${id})" class="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-lg font-bold">
-                <i class="fas fa-calculator mr-2"></i>智能评分
-              </button>
-            </div>
-          ` : `
-            <div class="bg-${project.scoring.passed ? 'green' : 'red'}-50 border-2 border-${project.scoring.passed ? 'green' : 'red'}-500 rounded-lg p-6">
-              <h3 class="text-2xl font-bold mb-4">智能评分结果</h3>
-              <div class="text-center mb-4">
-                <div class="text-5xl font-bold">${project.scoring.total_score} / 100</div>
-                <div class="text-xl mt-2 ${project.scoring.passed ? 'text-green-600' : 'text-red-600'}">
-                  ${project.scoring.passed ? '✅ 项目评估通过' : '❌ 项目未通过评估'}
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-4">
-                <div>ROI评分：${project.scoring.roi_score} / 25</div>
-                <div>退货率评分：${project.scoring.return_rate_score} / 25</div>
-                <div>净利润评分：${project.scoring.profit_score} / 25</div>
-                <div>店铺评分：${project.scoring.shop_score_value} / 12.5</div>
-              </div>
-              <button onclick="handleScoreProject(${id})" class="mt-4 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
-                <i class="fas fa-redo mr-2"></i>重新评分
-              </button>
-            </div>
-          `}
           
           <div id="workflow-actions">
             ${project.status === 'pending' || project.status === 'scoring' ? `

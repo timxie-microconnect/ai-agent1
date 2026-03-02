@@ -3,9 +3,84 @@
 
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { calculateSieveScore, DEFAULT_SCORING_RULE } from './scoring-sieve'
 
 const app = new Hono<{ Bindings: { DB: D1Database } }>()
+
+// ==========================================
+// 内联评分算法（60-100分制，达到阈值=60分）
+// ==========================================
+function calculateUplift(actual: number, threshold: number, type: 'ratio' | 'settle_rate' | 'spend'): number {
+  if (type === 'ratio') {
+    return Math.max(0, actual / threshold - 1)
+  } else if (type === 'settle_rate') {
+    return Math.max(0, (actual - threshold) / (1 - threshold))
+  } else {
+    if (actual <= threshold) return 0
+    return Math.log10(actual / threshold)
+  }
+}
+
+function calculateSubScore(uplift: number, k: number): number {
+  const baseScore = 60
+  const extraScore = 40 * (1 - Math.exp(-k * uplift))
+  return baseScore + extraScore
+}
+
+interface ScoringRule {
+  weight_net_roi: number
+  weight_settle_roi: number
+  weight_settle_rate: number
+  weight_history_spend: number
+  k_net_roi: number
+  k_settle_roi: number
+  k_settle_rate: number
+  k_history_spend: number
+}
+
+const DEFAULT_SCORING_RULE: ScoringRule = {
+  weight_net_roi: 20,
+  weight_settle_roi: 35,
+  weight_settle_rate: 30,
+  weight_history_spend: 15,
+  k_net_roi: 3,
+  k_settle_roi: 4,
+  k_settle_rate: 4,
+  k_history_spend: 1.5
+}
+
+function calculateSieveScore(
+  actual: {net_roi: number, settle_roi: number, settle_rate: number, history_spend: number},
+  thresholds: {net_roi_min: number, settle_roi_min: number, settle_rate_min: number, history_spend_min: number},
+  rule: ScoringRule
+) {
+  const u_net = calculateUplift(actual.net_roi, thresholds.net_roi_min, 'ratio')
+  const u_settle = calculateUplift(actual.settle_roi, thresholds.settle_roi_min, 'ratio')
+  const u_sr = calculateUplift(actual.settle_rate, thresholds.settle_rate_min, 'settle_rate')
+  const u_spend = calculateUplift(actual.history_spend, thresholds.history_spend_min, 'spend')
+  
+  const s_net = calculateSubScore(u_net, rule.k_net_roi)
+  const s_settle = calculateSubScore(u_settle, rule.k_settle_roi)
+  const s_sr = calculateSubScore(u_sr, rule.k_settle_rate)
+  const s_spend = calculateSubScore(u_spend, rule.k_history_spend)
+  
+  const totalScore = 
+    (rule.weight_net_roi / 100) * s_net +
+    (rule.weight_settle_roi / 100) * s_settle +
+    (rule.weight_settle_rate / 100) * s_sr +
+    (rule.weight_history_spend / 100) * s_spend
+  
+  return {
+    total_score: Math.round(totalScore * 10) / 10,
+    net_roi_score: Math.round(s_net * 10) / 10,
+    net_roi_uplift: Math.round(u_net * 1000) / 1000,
+    settle_roi_score: Math.round(s_settle * 10) / 10,
+    settle_roi_uplift: Math.round(u_settle * 1000) / 1000,
+    settle_rate_score: Math.round(s_sr * 10) / 10,
+    settle_rate_uplift: Math.round(u_sr * 1000) / 1000,
+    history_spend_score: Math.round(s_spend * 10) / 10,
+    history_spend_uplift: Math.round(u_spend * 1000) / 1000
+  }
+}
 
 // ==========================================
 // 1. 获取类目树结构（三级联动）
@@ -322,18 +397,46 @@ app.post('/scoring/calculate/:projectId', async (c) => {
       SELECT * FROM sieve_system_config LIMIT 1
     `).first()
     
-    const scoringRule = configResult ? {
-      weight_net_roi: configResult.weight_net_roi * 100,
-      weight_settle_roi: configResult.weight_settle_roi * 100,
-      weight_settle_rate: configResult.weight_settle_rate * 100,
-      weight_history_spend: configResult.weight_history_spend * 100,
-      k_net_roi: configResult.k_net_roi,
-      k_settle_roi: configResult.k_settle_roi,
-      k_settle_rate: configResult.k_settle_rate,
-      k_history_spend: configResult.k_history_spend
-    } : DEFAULT_SCORING_RULE
+    let scoringRule = DEFAULT_SCORING_RULE
+    
+    if (configResult && configResult.config_data) {
+      try {
+        const configData = JSON.parse(configResult.config_data as string)
+        
+        // 处理权重配置
+        if (configResult.config_type === 'weights') {
+          scoringRule = {
+            weight_net_roi: (configData.net_roi || 0.2) * 100,
+            weight_settle_roi: (configData.settle_roi || 0.35) * 100,
+            weight_settle_rate: (configData.settle_rate || 0.3) * 100,
+            weight_history_spend: (configData.history_spend || 0.15) * 100,
+            k_net_roi: DEFAULT_SCORING_RULE.k_net_roi,
+            k_settle_roi: DEFAULT_SCORING_RULE.k_settle_roi,
+            k_settle_rate: DEFAULT_SCORING_RULE.k_settle_rate,
+            k_history_spend: DEFAULT_SCORING_RULE.k_history_spend
+          }
+        }
+      } catch (e) {
+        console.error('解析配置数据失败:', e)
+      }
+    }
     
     // 计算评分 - 使用标准的scoring-sieve模块
+    console.log('===== 评分计算输入 =====')
+    console.log('项目数据:', {
+      net_roi: project.net_roi,
+      settle_roi: project.settle_roi,
+      settle_rate: project.settle_rate,
+      history_spend: project.history_spend
+    })
+    console.log('阈值数据:', {
+      net_roi_min: thresholdsResult.net_roi_min,
+      settle_roi_min: thresholdsResult.settle_roi_min,
+      settle_rate_min: thresholdsResult.settle_rate_min,
+      history_spend_min: thresholdsResult.history_spend_min
+    })
+    console.log('评分规则:', scoringRule)
+    
     const scoringResult = calculateSieveScore(
       {
         net_roi: project.net_roi as number,
@@ -349,6 +452,9 @@ app.post('/scoring/calculate/:projectId', async (c) => {
       },
       scoringRule
     )
+    
+    console.log('===== 评分计算输出 =====')
+    console.log('scoringResult:', JSON.stringify(scoringResult, null, 2))
     
     // 构建详细结果
     const detailsArray = [
