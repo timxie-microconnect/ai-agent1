@@ -405,9 +405,6 @@ function render10StepForm() {
                 </div>
               </div>
               
-              <!-- 阈值预览 -->
-              <div id="threshold-preview"></div>
-              
               <!-- 隐藏字段存储类目JSON -->
               <input type="hidden" id="selected_category_json" name="categoryJson">
             </div>
@@ -446,15 +443,6 @@ function render10StepForm() {
                          class="w-full px-4 py-2 border rounded-lg"
                          placeholder="如：500000">
                   <p class="text-xs text-gray-500 mt-1">累计消耗，整数</p>
-                </div>
-              </div>
-              
-              <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div class="flex items-start gap-2">
-                  <i class="fas fa-info-circle text-yellow-600 mt-0.5"></i>
-                  <div class="text-sm text-yellow-800">
-                    <strong>数据要求：</strong>所有指标必须达到所选类目的最低阈值才能通过准入审核。系统会自动应用"精确匹配 → 一级兜底 → 主营兜底"的规则。
-                  </div>
                 </div>
               </div>
             </div>

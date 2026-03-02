@@ -6,6 +6,7 @@ const SIEVE_STATE = {
   selectedMain: '',
   selectedLevel1: '',
   selectedLevel2: '',
+  currentThresholds: null,  // 当前加载的阈值（后台使用）
   admissionResult: null,
   scoringResult: null
 };
@@ -25,11 +26,11 @@ const SIEVE_API = {
   },
   
   async getThresholds(main, level1, level2) {
-    const params = new URLSearchParams();
-    if (main) params.append('main_category', main);
-    if (level1) params.append('level1_category', level1);
-    if (level2) params.append('level2_category', level2);
-    const response = await axios.get(`${this.baseURL}/thresholds?${params.toString()}`);
+    const response = await axios.post(`${this.baseURL}/categories/get-thresholds`, {
+      main_category: main,
+      level1_category: level1 || null,
+      level2_category: level2 || null
+    });
     return response.data;
   },
   
@@ -236,21 +237,22 @@ async function onCategorySearch(e) {
 function displaySearchResults(results, container) {
   container.innerHTML = results.slice(0, 20).map(item => {
     const fullPath = [
-      item.main_category,
-      item.level1_category,
-      item.level2_category
+      item.main,
+      item.level1,
+      item.level2
     ].filter(Boolean).join(' > ');
     
-    const level = item.level2_category ? '二级' : (item.level1_category ? '一级' : '主营');
+    const level = item.level2 ? '二级' : (item.level1 ? '一级' : '主营');
+    const displayName = item.level2 || item.level1 || item.main;
     
     return `
       <div class="p-3 hover:bg-blue-50 cursor-pointer border-b category-search-item transition"
-           data-main="${item.main_category}"
-           data-level1="${item.level1_category || ''}"
-           data-level2="${item.level2_category || ''}">
+           data-main="${item.main}"
+           data-level1="${item.level1 || ''}"
+           data-level2="${item.level2 || ''}">
         <div class="flex items-center justify-between">
           <div class="flex-1">
-            <div class="text-sm font-medium text-gray-800">${item.level2_category || item.level1_category || item.main_category}</div>
+            <div class="text-sm font-medium text-gray-800">${displayName}</div>
             <div class="text-xs text-gray-500 mt-1">${fullPath}</div>
           </div>
           <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">${level}</span>
@@ -297,12 +299,15 @@ function selectCategoryFromSearch(data) {
   document.getElementById('category-search-input').value = '';
 }
 
-// ==================== 阈值预览 ====================
+// ==================== 阈值预览（后台静默加载，不显示给用户）====================
 async function previewThresholds() {
+  // 静默加载阈值，不显示给融资方
   const previewContainer = document.getElementById('threshold-preview');
-  if (!previewContainer || !SIEVE_STATE.selectedMain) return;
+  if (previewContainer) {
+    previewContainer.style.display = 'none';  // 隐藏阈值预览
+  }
   
-  previewContainer.innerHTML = '<div class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>加载阈值...</div>';
+  if (!SIEVE_STATE.selectedMain) return;
   
   try {
     const result = await SIEVE_API.getThresholds(
@@ -312,43 +317,13 @@ async function previewThresholds() {
     );
     
     if (result.success && result.data) {
-      const t = result.data.threshold;
-      const fallbackText = result.data.fallback_level === 'level2' ? '精确匹配' :
-                          result.data.fallback_level === 'level1' ? '一级兜底（取最严）' : '主营兜底（取最严）';
-      
-      previewContainer.innerHTML = `
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h4 class="font-semibold text-blue-900">准入阈值标准</h4>
-            <span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">${fallbackText}</span>
-          </div>
-          <div class="grid grid-cols-2 gap-3 text-sm">
-            <div class="bg-white p-2 rounded">
-              <div class="text-gray-600 text-xs">净成交ROI</div>
-              <div class="font-semibold text-lg text-gray-900">≥ ${(t.net_roi_min * 100).toFixed(2)}%</div>
-            </div>
-            <div class="bg-white p-2 rounded">
-              <div class="text-gray-600 text-xs">14日结算ROI</div>
-              <div class="font-semibold text-lg text-gray-900">≥ ${(t.settle_roi_min * 100).toFixed(2)}%</div>
-            </div>
-            <div class="bg-white p-2 rounded">
-              <div class="text-gray-600 text-xs">14日订单结算率</div>
-              <div class="font-semibold text-lg text-gray-900">≥ ${(t.settle_rate_min * 100).toFixed(2)}%</div>
-            </div>
-            <div class="bg-white p-2 rounded">
-              <div class="text-gray-600 text-xs">历史消耗</div>
-              <div class="font-semibold text-lg text-gray-900">≥ ¥${t.spend_min.toLocaleString()}</div>
-            </div>
-          </div>
-          <div class="mt-3 text-xs text-blue-700">
-            <i class="fas fa-info-circle mr-1"></i>
-            四项指标需全部达标才能通过准入审核
-          </div>
-        </div>
-      `;
+      // 将阈值保存到全局状态，供提交时使用
+      SIEVE_STATE.currentThresholds = result.data;
+      console.log('✅ 阈值已加载（后台）:', result.data);
     }
   } catch (error) {
-    previewContainer.innerHTML = '<div class="text-sm text-red-500"><i class="fas fa-exclamation-circle mr-2"></i>加载失败</div>';
+    console.error('❌ 加载阈值失败:', error);
+    // 静默失败，不显示给用户
   }
 }
 
