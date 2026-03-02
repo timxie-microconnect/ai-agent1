@@ -532,7 +532,7 @@ window.handleFormSubmit = async function(event) {
       level2_category: category.level2 || null,
       net_roi: parseFloat(form.netRoi.value),
       settle_roi: parseFloat(form.settleRoi.value),
-      settle_rate: parseFloat(form.settleRate.value),
+      settle_rate: parseFloat(form.settleRate.value) / 100,  // 用户输入80，转换为0.8
       history_spend: parseInt(form.historySpend.value)
     };
     
@@ -602,40 +602,6 @@ async function renderProjectDetail(id) {
             </div>
           </div>
           
-          ${project.scoring ? `
-            <div class="bg-white rounded-lg shadow-lg p-6 mb-6 ${project.scoring.passed ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500'}">
-              <h2 class="text-2xl font-bold mb-4">
-                <i class="fas fa-chart-line mr-2"></i>智能评分结果
-              </h2>
-              <div class="text-center mb-6">
-                <div class="text-5xl font-bold mb-2">${project.scoring.total_score} / 100</div>
-                <div class="text-xl ${project.scoring.passed ? 'text-green-600' : 'text-red-600'}">
-                  ${project.scoring.passed ? '✅ 项目评估通过' : '❌ 项目未通过评估'}
-                </div>
-              </div>
-              <div class="grid md:grid-cols-2 gap-4 mb-4">
-                <div class="p-4 bg-gray-50 rounded">
-                  <div class="text-sm text-gray-600">ROI评分</div>
-                  <div class="text-2xl font-bold">${project.scoring.roi_score} / 25</div>
-                </div>
-                <div class="p-4 bg-gray-50 rounded">
-                  <div class="text-sm text-gray-600">退货率评分</div>
-                  <div class="text-2xl font-bold">${project.scoring.return_rate_score} / 25</div>
-                </div>
-                <div class="p-4 bg-gray-50 rounded">
-                  <div class="text-sm text-gray-600">净利润评分</div>
-                  <div class="text-2xl font-bold">${project.scoring.profit_score} / 25</div>
-                </div>
-                <div class="p-4 bg-gray-50 rounded">
-                  <div class="text-sm text-gray-600">店铺评分</div>
-                  <div class="text-2xl font-bold">${project.scoring.shop_score_value} / 12.5</div>
-                </div>
-              </div>
-              <div class="bg-blue-50 p-4 rounded">
-                <p class="text-gray-700">${project.scoring.evaluation_suggestion}</p>
-              </div>
-            </div>
-          ` : ''}
           
           <div class="bg-white rounded-lg shadow-lg p-6">
             <h2 class="text-2xl font-bold mb-4"><i class="fas fa-info-circle mr-2"></i>项目信息</h2>
@@ -1009,23 +975,6 @@ window.openAdminProjectModal = async function(id) {
   }
 };
 
-window.handleScoreProject = async function(id) {
-  try {
-    // 使用动态评分API
-    const result = await API_EXTENDED.scoreDynamic(id);
-    
-    if (result.autoRejected) {
-      showAlert(`评分完成：${result.totalScore}分，低于60分阈值，已自动拒绝`, 'warning');
-    } else {
-      showAlert(`评分完成：${result.totalScore}分，${result.passed ? '达到投资标准' : '未达标'}`, 'success');
-    }
-    
-    document.getElementById('adminModal').remove();
-    refreshAdminProjects();
-  } catch (error) {
-    showAlert(error.message, 'error');
-  }
-};
 
 // 筛子评分处理函数
 window.handleSieveScore = async function(id) {
