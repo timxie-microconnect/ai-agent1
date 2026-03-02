@@ -1075,9 +1075,18 @@ window.handleApprove = async function(id, action) {
       showAlert(error.message, 'error');
     }
   } else {
-    // 审批通过时，打开尽调checklist弹窗
-    document.getElementById('adminModal').remove();
-    showDueDiligenceModal(id);
+    // 审批通过
+    const confirmed = confirm('确认审批通过该项目？');
+    if (!confirmed) return;
+    
+    try {
+      const result = await API.approveProject(id, action, '审批通过');
+      showAlert('审批通过成功！', 'success');
+      document.getElementById('adminModal').remove();
+      refreshAdminProjects();
+    } catch (error) {
+      showAlert(error.message, 'error');
+    }
   }
 };
 

@@ -22,12 +22,12 @@ export function formatDateTime(date: Date | string): string {
 // 获取状态显示文本
 export function getStatusText(status: string): string {
   const statusMap: Record<string, string> = {
-    'pending': '待评分',
+    'pending': '待审核',
     'scoring': '评分中',
-    'approved': '审批通过',
-    'rejected': '审批拒绝',
+    'approved': '已通过',
+    'rejected': '已拒绝',
     'contract_uploaded': '协议已上传',
-    'funded': '已完成出资'
+    'funded': '已放款'
   };
   return statusMap[status] || status;
 }

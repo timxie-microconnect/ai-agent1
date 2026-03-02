@@ -402,19 +402,7 @@ app.get('/api/projects', authMiddleware, async (c) => {
     ORDER BY created_at DESC
   `).bind(user.userId).all();
   
-  // 状态文本映射
-  const getStatusText = (status: string) => {
-    const statusMap: Record<string, string> = {
-      'pending': '待审核',
-      'scoring': '评分中',
-      'approved': '已通过',
-      'rejected': '已拒绝',
-      'contract_uploaded': '协议已上传',
-      'funded': '已放款'
-    };
-    return statusMap[status] || status;
-  };
-
+  
   return c.json(results.map((p: any) => ({
     id: p.id,
     submissionCode: p.submission_code,
@@ -506,7 +494,13 @@ app.get('/api/admin/projects', adminAuthMiddleware, async (c) => {
   const { DB } = c.env;
   
   const { results } = await DB.prepare(`
-    SELECT p.id, p.submission_code, p.status, p.company_name_a as project_name, p.created_at, u.username, u.company_name
+    SELECT 
+      p.id, p.submission_code, p.status, 
+      p.company_name_a as project_name, 
+      p.main_category, p.level1_category, p.level2_category,
+      p.admission_result, p.sieve_score,
+      p.created_at, 
+      u.username, u.company_name
     FROM projects p
     LEFT JOIN users u ON p.user_id = u.id
     ORDER BY p.created_at DESC
@@ -521,6 +515,11 @@ app.get('/api/admin/projects', adminAuthMiddleware, async (c) => {
       statusText: getStatusText(p.status),
       statusColor: getStatusColor(p.status),
       projectName: p.project_name,
+      main_category: p.main_category,
+      level1_category: p.level1_category,
+      level2_category: p.level2_category,
+      admission_result: p.admission_result,
+      sieve_score: p.sieve_score,
       username: p.username,
       companyName: p.company_name,
       createdAt: formatDateTime(p.created_at)
