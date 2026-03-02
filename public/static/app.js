@@ -351,50 +351,112 @@ function render10StepForm() {
           <form onsubmit="handleFormSubmit(event)" class="space-y-6">
             <div>
               <label class="block font-semibold mb-2">企业名称 <span class="text-red-500">*</span></label>
-              <input type="text" name="companyName" required class="w-full px-4 py-2 border rounded-lg">
+              <input type="text" name="companyName" required class="w-full px-4 py-2 border rounded-lg" placeholder="请输入营业执照上的完整企业名称">
             </div>
             
-            <div>
-              <label class="block font-semibold mb-2">商品品类 <span class="text-red-500">*</span></label>
-              <select name="category" required class="w-full px-4 py-2 border rounded-lg">
-                <option value="">请选择</option>
-                <option value="女装">女装</option>
-                <option value="男装">男装</option>
-                <option value="美妆">美妆</option>
-                <option value="食品">食品</option>
-                <option value="日用品">日用品</option>
-                <option value="母婴">母婴</option>
-                <option value="家电">家电</option>
-                <option value="家居">家居</option>
-                <option value="药品">药品</option>
-              </select>
+            <!-- 三级类目选择（筛子系统） -->
+            <div class="border-t pt-4">
+              <h3 class="text-lg font-bold mb-4 text-gray-800">
+                <i class="fas fa-sitemap text-purple-600 mr-2"></i>经营类目选择
+              </h3>
+              
+              <!-- 搜索功能 -->
+              <div class="category-search-container relative mb-4">
+                <label class="block font-semibold mb-2">
+                  <i class="fas fa-search text-gray-500 mr-1"></i>快速搜索类目（支持拼音和中文）
+                </label>
+                <input type="text" id="category-search-input"
+                       class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                       placeholder="输入关键词，如：水果、女装、nz、sg...">
+                <div id="category-search-results" 
+                     class="hidden absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-y-auto"></div>
+              </div>
+
+              <!-- 三级联动下拉选择 -->
+              <div class="grid md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label class="block font-semibold mb-2">主营类目 <span class="text-red-500">*</span></label>
+                  <select id="main-category-select" required
+                          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- 请选择主营类目 --</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-semibold mb-2">一级类目 <span class="text-gray-500 text-sm">(可选)</span></label>
+                  <select id="level1-category-select" disabled
+                          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- 请先选择主营类目 --</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-semibold mb-2">二级类目 <span class="text-gray-500 text-sm">(可选)</span></label>
+                  <select id="level2-category-select" disabled
+                          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- 请先选择一级类目 --</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- 已选类目显示 -->
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div class="text-sm font-semibold text-gray-700 mb-2">当前选择：</div>
+                <div id="selected-category-path" class="text-gray-400">
+                  <i class="fas fa-info-circle mr-2"></i>未选择（至少需要选择主营类目）
+                </div>
+              </div>
+              
+              <!-- 阈值预览 -->
+              <div id="threshold-preview"></div>
+              
+              <!-- 隐藏字段存储类目JSON -->
+              <input type="hidden" id="selected_category_json" name="categoryJson">
             </div>
             
-            <div class="grid md:grid-cols-2 gap-4">
-              <div>
-                <label class="block font-semibold mb-2">投流ROI (%) <span class="text-red-500">*</span></label>
-                <input type="number" step="0.1" name="roi" required class="w-full px-4 py-2 border rounded-lg">
+            <!-- 近90天经营数据（筛子系统四项指标） -->
+            <div class="border-t pt-4">
+              <h3 class="text-lg font-bold mb-4 text-gray-800">
+                <i class="fas fa-chart-line text-orange-600 mr-2"></i>近90天经营数据
+              </h3>
+              
+              <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-semibold mb-2">净成交ROI <span class="text-red-500">*</span></label>
+                  <input type="number" step="0.01" min="0.01" name="netRoi" required 
+                         class="w-full px-4 py-2 border rounded-lg"
+                         placeholder="如：1.85（表示185%）">
+                  <p class="text-xs text-gray-500 mt-1">大于0，如1.85表示185%</p>
+                </div>
+                <div>
+                  <label class="block font-semibold mb-2">14日结算ROI <span class="text-red-500">*</span></label>
+                  <input type="number" step="0.01" min="0.01" name="settleRoi" required 
+                         class="w-full px-4 py-2 border rounded-lg"
+                         placeholder="如：1.62">
+                  <p class="text-xs text-gray-500 mt-1">大于0，如1.62</p>
+                </div>
+                <div>
+                  <label class="block font-semibold mb-2">14日订单结算率 (%) <span class="text-red-500">*</span></label>
+                  <input type="number" step="0.01" min="0" max="100" name="settleRate" required 
+                         class="w-full px-4 py-2 border rounded-lg"
+                         placeholder="如：82">
+                  <p class="text-xs text-gray-500 mt-1">0-100，如82表示82%</p>
+                </div>
+                <div>
+                  <label class="block font-semibold mb-2">历史消耗金额（元）<span class="text-red-500">*</span></label>
+                  <input type="number" min="0" step="1000" name="historySpend" required 
+                         class="w-full px-4 py-2 border rounded-lg"
+                         placeholder="如：500000">
+                  <p class="text-xs text-gray-500 mt-1">累计消耗，整数</p>
+                </div>
               </div>
-              <div>
-                <label class="block font-semibold mb-2">退货率 (%) <span class="text-red-500">*</span></label>
-                <input type="number" step="0.1" name="returnRate" required class="w-full px-4 py-2 border rounded-lg">
+              
+              <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div class="flex items-start gap-2">
+                  <i class="fas fa-info-circle text-yellow-600 mt-0.5"></i>
+                  <div class="text-sm text-yellow-800">
+                    <strong>数据要求：</strong>所有指标必须达到所选类目的最低阈值才能通过准入审核。系统会自动应用"精确匹配 → 一级兜底 → 主营兜底"的规则。
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            <div class="grid md:grid-cols-2 gap-4">
-              <div>
-                <label class="block font-semibold mb-2">净利润率 (%) <span class="text-red-500">*</span></label>
-                <input type="number" step="0.1" name="profitRate" required class="w-full px-4 py-2 border rounded-lg">
-              </div>
-              <div>
-                <label class="block font-semibold mb-2">店铺评分 (1-5) <span class="text-red-500">*</span></label>
-                <input type="number" step="0.1" min="1" max="5" name="shopScore" required class="w-full px-4 py-2 border rounded-lg">
-              </div>
-            </div>
-            
-            <div>
-              <label class="block font-semibold mb-2">运营时间 (月) <span class="text-red-500">*</span></label>
-              <input type="number" name="operationMonths" required class="w-full px-4 py-2 border rounded-lg">
             </div>
             
             <div class="flex gap-4">
@@ -410,11 +472,32 @@ function render10StepForm() {
       </div>
     </div>
   `;
+  
+  // 初始化筛子系统（加载类目树）
+  setTimeout(async () => {
+    if (window.SIEVE && window.SIEVE.init) {
+      await window.SIEVE.init();
+      console.log('✅ 筛子系统已初始化');
+    }
+  }, 100);
 }
 
 window.handleFormSubmit = async function(event) {
   event.preventDefault();
   const form = event.target;
+  
+  // 获取类目JSON
+  const categoryJson = document.getElementById('selected_category_json').value;
+  if (!categoryJson) {
+    showAlert('请选择经营类目', 'error');
+    return;
+  }
+  
+  const category = JSON.parse(categoryJson);
+  if (!category.main) {
+    showAlert('至少需要选择主营类目', 'error');
+    return;
+  }
   
   const projectData = {
     step1: { isSameEntity: '是', hasIncomeSharing: '否', fundUsage: '巨量引擎方舟账户广告投放充值' },
@@ -422,13 +505,22 @@ window.handleFormSubmit = async function(event) {
       companyName: form.companyName.value,
       creditCode: '91110000123456789X',
       address: '北京市朝阳区',
-      productCategory: form.category.value,
-      roi: parseFloat(form.roi.value),
-      returnRate: parseFloat(form.returnRate.value),
-      profitRate: parseFloat(form.profitRate.value),
-      shopScore: parseFloat(form.shopScore.value),
-      operationMonths: parseInt(form.operationMonths.value),
-      businessDescription: '抖音电商店铺运营'
+      // 筛子系统字段
+      productCategory: category.level2 || category.level1 || category.main,  // 使用最细粒度类目
+      mainCategory: category.main,
+      level1Category: category.level1 || null,
+      level2Category: category.level2 || null,
+      netRoi: parseFloat(form.netRoi.value),
+      settleRoi: parseFloat(form.settleRoi.value),
+      settleRate: parseFloat(form.settleRate.value),
+      historySpend: parseInt(form.historySpend.value),
+      // 保留兼容字段（用于旧评分系统）
+      roi: parseFloat(form.netRoi.value) * 100,  // 转换为百分比形式
+      returnRate: 0,  // 新系统不使用
+      profitRate: 0,  // 新系统不使用
+      shopScore: 5,   // 新系统不使用
+      operationMonths: 12,  // 新系统不使用
+      businessDescription: '抖店投流垫资业务'
     },
     step3: {},
     step4: [{ entityType: '主体A', name: '张三', idType: '身份证', idNumber: '110101199001011234' }],
@@ -444,8 +536,43 @@ window.handleFormSubmit = async function(event) {
   };
   
   try {
+    // 先调用准入检查
+    const admissionData = {
+      company_name: form.companyName.value,
+      main_category: category.main,
+      level1_category: category.level1 || null,
+      level2_category: category.level2 || null,
+      net_roi: parseFloat(form.netRoi.value),
+      settle_roi: parseFloat(form.settleRoi.value),
+      settle_rate: parseFloat(form.settleRate.value),
+      history_spend: parseInt(form.historySpend.value)
+    };
+    
+    const admissionResult = await axios.post('/api/sieve/admission/check', admissionData);
+    
+    // 如果未通过准入，显示结果但仍然提交
+    if (admissionResult.data.data.admission_result !== '可评分') {
+      const confirmSubmit = confirm(
+        `准入检查结果：${admissionResult.data.data.admission_result}\n` +
+        `原因：${admissionResult.data.data.fail_reasons.join('；')}\n\n` +
+        `是否仍要提交项目？（提交后将标记为"未准入"状态）`
+      );
+      
+      if (!confirmSubmit) {
+        return;
+      }
+      
+      // 标记为未准入
+      projectData.step2.admissionResult = admissionResult.data.data.admission_result;
+      projectData.step2.admissionDetails = JSON.stringify(admissionResult.data.data);
+    } else {
+      // 通过准入
+      projectData.step2.admissionResult = '可评分';
+      projectData.step2.admissionDetails = JSON.stringify(admissionResult.data.data);
+    }
+    
     const result = await API.createProject(projectData);
-    showAlert('项目提交成功！', 'success');
+    showAlert('项目提交成功！准入检查已完成。', 'success');
     setTimeout(() => Router.navigate('/dashboard'), 1500);
   } catch (error) {
     showAlert(error.message, 'error');

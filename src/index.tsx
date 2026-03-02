@@ -1377,6 +1377,7 @@ app.get('/', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
         <script src="/static/app.js"></script>
         <script src="/static/app-extended.js"></script>
     </body>
@@ -1399,6 +1400,7 @@ app.get('/dashboard', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
         <script src="/static/app.js"></script>
         <script src="/static/app-extended.js"></script>
     </body>
@@ -1421,6 +1423,7 @@ app.get('/project/:id', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
         <script src="/static/app.js"></script>
         <script src="/static/app-extended.js"></script>
     </body>
@@ -1443,6 +1446,7 @@ app.get('/login', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
         <script src="/static/app.js"></script>
         <script src="/static/app-extended.js"></script>
     </body>
@@ -1465,6 +1469,7 @@ app.get('/admin/login', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
         <script src="/static/app.js"></script>
         <script src="/static/app-extended.js"></script>
     </body>
@@ -1487,6 +1492,7 @@ app.get('/admin', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
         <script src="/static/app.js"></script>
         <script src="/static/app-extended.js"></script>
     </body>
