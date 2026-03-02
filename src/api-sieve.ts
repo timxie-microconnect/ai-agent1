@@ -48,19 +48,16 @@ app.get('/categories/tree', async (c) => {
         `).bind(mainCat, level1Cat).all()
         
         level1Items.push({
-          value: level1Cat,
-          label: level1Cat,
-          children: level2Categories.results.map((level2: any) => ({
-            value: level2.level2_category,
-            label: level2.level2_category
-          }))
+          level1_category: level1Cat,
+          level2_count: level2Categories.results.length,
+          level2_categories: level2Categories.results.map((level2: any) => level2.level2_category)
         })
       }
       
       tree.push({
-        value: mainCat,
-        label: mainCat,
-        children: level1Items
+        main_category: mainCat,
+        level1_count: level1Items.length,
+        level1_categories: level1Items
       })
     }
     

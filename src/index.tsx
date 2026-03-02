@@ -790,6 +790,9 @@ app.get('/nav', (c) => {
                 <a href="/sieve-demo" class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm hover:shadow-lg transition">
                     <i class="fas fa-filter mr-1"></i>🔥 筛子系统演示
                 </a>
+                <a href="/apply-financing" class="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg text-sm hover:shadow-lg transition">
+                    <i class="fas fa-hand-holding-usd mr-1"></i>💰 融资申请（筛子）
+                </a>
             </div>
         </div>
 
@@ -1070,6 +1073,289 @@ app.get('/sieve-demo', (c) => {
                     resultDiv.innerHTML = \`<div class="text-red-600">错误：\${error.response?.data?.error || error.message}</div>\`;
                 }
             }
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+// 融资申请表单（筛子系统集成）
+app.get('/apply-financing', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>抖店投流垫资申请 - 筛子准入系统</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8">
+        <div class="max-w-4xl mx-auto px-4">
+            <!-- 头部 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">
+                            <i class="fas fa-hand-holding-usd text-blue-600 mr-2"></i>
+                            抖店投流垫资申请
+                        </h1>
+                        <p class="text-gray-600 mt-1">基于1487个类目精确阈值的智能准入与评分系统</p>
+                    </div>
+                    <a href="/nav" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-home mr-1"></i>返回首页
+                    </a>
+                </div>
+            </div>
+
+            <!-- 申请表单 -->
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <form id="financing-form" class="space-y-6">
+                    
+                    <!-- 企业信息 -->
+                    <div class="border-b pb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-building text-green-600 mr-2"></i>
+                            企业信息
+                        </h2>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                企业名称 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="company_name" required
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="请输入营业执照上的完整企业名称">
+                        </div>
+                    </div>
+
+                    <!-- 类目选择 -->
+                    <div class="border-b pb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-sitemap text-purple-600 mr-2"></i>
+                            经营类目选择
+                        </h2>
+                        
+                        <!-- 搜索功能 -->
+                        <div class="category-search-container relative mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-search text-gray-500 mr-1"></i>
+                                快速搜索类目（支持拼音和中文）
+                            </label>
+                            <input type="text" id="category-search-input"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                   placeholder="输入关键词，如：水果、女装、nz、sg...">
+                            <div id="category-search-results" 
+                                 class="hidden absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-y-auto"></div>
+                        </div>
+
+                        <!-- 三级联动下拉选择 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    主营类目 <span class="text-red-500">*</span>
+                                </label>
+                                <select id="main-category-select" required
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">-- 请选择主营类目 --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    一级类目 <span class="text-gray-400">(可选)</span>
+                                </label>
+                                <select id="level1-category-select" disabled
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">-- 请先选择主营类目 --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    二级类目 <span class="text-gray-400">(可选)</span>
+                                </label>
+                                <select id="level2-category-select" disabled
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">-- 请先选择一级类目 --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 已选类目显示 -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="text-sm font-medium text-gray-700 mb-2">当前选择：</div>
+                            <div id="selected-category-path" class="text-gray-400">
+                                <i class="fas fa-info-circle mr-2"></i>未选择（至少需要选择主营类目）
+                            </div>
+                        </div>
+                        
+                        <!-- 隐藏字段存储类目JSON -->
+                        <input type="hidden" id="selected_category_json">
+                    </div>
+
+                    <!-- 阈值预览 -->
+                    <div id="threshold-preview" class="mb-6"></div>
+
+                    <!-- 经营数据 -->
+                    <div class="border-b pb-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">
+                            <i class="fas fa-chart-line text-orange-600 mr-2"></i>
+                            近90天经营数据
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    净成交ROI <span class="text-red-500">*</span>
+                                    <span class="text-xs text-gray-500 ml-2">(大于0，如：1.85表示185%)</span>
+                                </label>
+                                <input type="number" id="net_roi" step="0.01" min="0.01" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                       placeholder="例如：1.85">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    14日结算ROI <span class="text-red-500">*</span>
+                                    <span class="text-xs text-gray-500 ml-2">(大于0，如：1.62)</span>
+                                </label>
+                                <input type="number" id="settle_roi" step="0.01" min="0.01" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                       placeholder="例如：1.62">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    14日订单结算率 <span class="text-red-500">*</span>
+                                    <span class="text-xs text-gray-500 ml-2">(0-100，如：82表示82%)</span>
+                                </label>
+                                <input type="number" id="settle_rate" min="0" max="100" step="0.01" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                       placeholder="例如：82">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    历史消耗金额（元）<span class="text-red-500">*</span>
+                                    <span class="text-xs text-gray-500 ml-2">(累计消耗，整数)</span>
+                                </label>
+                                <input type="number" id="history_spend" min="0" step="1000" required
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                       placeholder="例如：500000">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div class="flex items-start gap-2">
+                                <i class="fas fa-info-circle text-yellow-600 mt-0.5"></i>
+                                <div class="text-sm text-yellow-800">
+                                    <strong>数据要求：</strong>
+                                    所有指标必须达到所选类目的最低阈值才能通过准入审核。系统会自动应用"精确匹配 → 一级兜底 → 主营兜底"的规则。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <div class="flex justify-end gap-4">
+                        <button type="button" onclick="window.location.href='/nav'"
+                                class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            <i class="fas fa-times mr-2"></i>取消
+                        </button>
+                        <button type="submit" id="submit-btn"
+                                class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">
+                            <i class="fas fa-paper-plane mr-2"></i>提交申请
+                        </button>
+                    </div>
+                </form>
+
+                <!-- 准入结果显示 -->
+                <div id="admission-result" class="mt-6 hidden"></div>
+            </div>
+
+            <!-- 帮助说明 -->
+            <div class="mt-6 bg-white rounded-lg shadow p-6">
+                <h3 class="font-bold text-gray-800 mb-3">
+                    <i class="fas fa-question-circle text-blue-600 mr-2"></i>
+                    填写说明
+                </h3>
+                <ul class="space-y-2 text-sm text-gray-700">
+                    <li><i class="fas fa-check text-green-600 mr-2"></i>至少需要选择<strong>主营类目</strong>，可进一步选择一级、二级类目以获得更精确的阈值</li>
+                    <li><i class="fas fa-check text-green-600 mr-2"></i>如果您的二级类目没有精确阈值，系统会自动应用<strong>一级类目</strong>的最严格阈值</li>
+                    <li><i class="fas fa-check text-green-600 mr-2"></i>如果一级类目也无阈值，系统会应用<strong>主营类目</strong>下所有二级类目的最严格阈值</li>
+                    <li><i class="fas fa-check text-green-600 mr-2"></i>四项经营数据（净ROI、14日ROI、结算率、消耗）<strong>必须全部达标</strong>才能通过准入</li>
+                    <li><i class="fas fa-check text-green-600 mr-2"></i>通过准入后，系统会根据您的超额表现进行智能评分（满分100分）</li>
+                </ul>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js"></script>
+        <script>
+            // 页面加载时初始化
+            document.addEventListener('DOMContentLoaded', async function() {
+                await window.SIEVE.init();
+                console.log('✅ 筛子系统初始化完成');
+            });
+
+            // 表单提交
+            document.getElementById('financing-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const submitBtn = document.getElementById('submit-btn');
+                const resultDiv = document.getElementById('admission-result');
+                
+                // 获取表单数据
+                const categoryJson = document.getElementById('selected_category_json').value;
+                if (!categoryJson) {
+                    alert('请选择经营类目');
+                    return;
+                }
+                
+                const category = JSON.parse(categoryJson);
+                if (!category.main) {
+                    alert('至少需要选择主营类目');
+                    return;
+                }
+                
+                const formData = {
+                    company_name: document.getElementById('company_name').value,
+                    main_category: category.main,
+                    level1_category: category.level1 || null,
+                    level2_category: category.level2 || null,
+                    net_roi: parseFloat(document.getElementById('net_roi').value),
+                    settle_roi: parseFloat(document.getElementById('settle_roi').value),
+                    settle_rate: parseFloat(document.getElementById('settle_rate').value),
+                    history_spend: parseInt(document.getElementById('history_spend').value)
+                };
+                
+                // 禁用按钮
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>检查中...';
+                
+                try {
+                    // 调用准入检查API
+                    const result = await window.SIEVE.checkAdmission(formData);
+                    
+                    // 显示结果
+                    resultDiv.classList.remove('hidden');
+                    window.SIEVE.displayAdmissionResult(result);
+                    
+                    // 滚动到结果
+                    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // 如果通过准入，可以进一步操作
+                    if (result.data.admission_result === '可评分') {
+                        setTimeout(() => {
+                            if (confirm('恭喜通过准入审核！是否进入详细评分页面？')) {
+                                // 这里可以跳转到评分页面或者直接进行评分
+                                // window.location.href = '/scoring-detail?data=' + encodeURIComponent(JSON.stringify(formData));
+                            }
+                        }, 1500);
+                    }
+                    
+                } catch (error) {
+                    alert('提交失败：' + error.message);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>提交申请';
+                }
+            });
         </script>
     </body>
     </html>
