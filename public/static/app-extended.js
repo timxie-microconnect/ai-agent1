@@ -401,7 +401,7 @@ async function loadCategoryTreeForThresholds() {
     const mainSelect = document.getElementById('threshold-main-category');
     if (mainSelect) {
       mainSelect.innerHTML = '<option value="">-- 请选择主营类目 --</option>' +
-        categoryTreeData.map(cat => `<option value="${cat.value}">${cat.label}</option>`).join('');
+        categoryTreeData.map(cat => `<option value="${cat.main_category}">${cat.main_category}</option>`).join('');
     }
   } catch (error) {
     showAlert('加载类目失败：' + error.message, 'error');
@@ -419,21 +419,21 @@ async function loadCategoryThresholds() {
   document.getElementById('threshold-config-area').classList.remove('hidden');
   
   // 获取选中的主营类目数据
-  const mainCat = categoryTreeData.find(c => c.value === mainCategory);
-  if (!mainCat || !mainCat.children) {
+  const mainCat = categoryTreeData.find(c => c.main_category === mainCategory);
+  if (!mainCat || !mainCat.level1_categories) {
     return;
   }
   
   // 构建二级类目列表（包含路径）
   const level2Options = [];
-  mainCat.children.forEach(level1 => {
-    if (level1.children) {
-      level1.children.forEach(level2 => {
+  mainCat.level1_categories.forEach(level1 => {
+    if (level1.level2_categories) {
+      level1.level2_categories.forEach(level2 => {
         level2Options.push({
           main: mainCategory,
-          level1: level1.value,
-          level2: level2.value,
-          label: `${level1.label} > ${level2.label}`
+          level1: level1.level1_category,
+          level2: level2,
+          label: `${level1.level1_category} > ${level2}`
         });
       });
     }
