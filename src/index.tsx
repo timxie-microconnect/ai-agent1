@@ -516,58 +516,81 @@ app.post('/api/admin/projects/:id/score', adminAuthMiddleware, async (c) => {
     return c.json({ error: '项目不存在' }, 404);
   }
   
-  // 执行评分
-  const scoringResult = calculateScore(
-    project.product_category as string,
-    project.roi as number,
-    project.return_rate as number,
-    project.profit_rate as number,
-    project.shop_score as number,
-    project.operation_months as number
-  );
-  
-  // 保存评分结果
-  await DB.prepare(`
-    INSERT INTO scoring_results (
-      project_id, roi_score, return_rate_score, profit_score, 
-      shop_score_value, operation_score, total_score, passed, evaluation_suggestion
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    projectId,
-    scoringResult.roiScore,
-    scoringResult.returnRateScore,
-    scoringResult.profitScore,
-    scoringResult.shopScoreValue,
-    scoringResult.operationScore,
-    scoringResult.totalScore,
-    scoringResult.passed ? 1 : 0,
-    scoringResult.evaluationSuggestion
-  ).run();
-  
-  // 根据评分结果决定状态
-  let newStatus = 'scoring';
-  let workflowRemark = '';
-  
-  // 如果评分低于60分，自动拒绝
-  if (scoringResult.totalScore < 60) {
-    newStatus = 'rejected';
-    workflowRemark = `智能评分未通过（${scoringResult.totalScore}分），自动拒绝`;
+  // 检查项目是否有筛子评分（新系统）
+  if (project.main_category) {
+    return c.json({ 
+      error: '该项目使用筛子评分系统，请使用"筛子智能评分"按钮进行评分',
+      usesSieveSystem: true 
+    }, 400);
   }
   
-  // 更新项目状态
-  await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(newStatus, projectId).run();
+  // 检查必要字段
+  if (!project.roi || !project.return_rate || !project.profit_rate) {
+    return c.json({ 
+      error: '项目数据不完整，缺少必要的评分字段（ROI、退货率、利润率）',
+      missingFields: true
+    }, 400);
+  }
   
-  // 记录工作流
-  await DB.prepare(`
-    INSERT INTO workflow_history (project_id, from_status, to_status, operator_id, remark)
-    VALUES (?, ?, ?, ?, ?)
-  `).bind(projectId, project.status, newStatus, user.userId, workflowRemark).run();
-  
-  return c.json({ 
-    success: true, 
-    scoring: scoringResult,
-    autoRejected: scoringResult.totalScore < 60
-  });
+  try {
+    // 执行评分
+    const scoringResult = calculateScore(
+      project.product_category as string,
+      project.roi as number,
+      project.return_rate as number,
+      project.profit_rate as number,
+      project.shop_score as number,
+      project.operation_months as number
+    );
+    
+    // 保存评分结果
+    await DB.prepare(`
+      INSERT INTO scoring_results (
+        project_id, roi_score, return_rate_score, profit_score, 
+        shop_score_value, operation_score, total_score, passed, evaluation_suggestion
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      projectId,
+      scoringResult.roiScore,
+      scoringResult.returnRateScore,
+      scoringResult.profitScore,
+      scoringResult.shopScoreValue,
+      scoringResult.operationScore,
+      scoringResult.totalScore,
+      scoringResult.passed ? 1 : 0,
+      scoringResult.evaluationSuggestion
+    ).run();
+    
+    // 根据评分结果决定状态
+    let newStatus = 'scoring';
+    let workflowRemark = '';
+    
+    // 如果评分低于60分，自动拒绝
+    if (scoringResult.totalScore < 60) {
+      newStatus = 'rejected';
+      workflowRemark = `智能评分未通过（${scoringResult.totalScore}分），自动拒绝`;
+    }
+    
+    // 更新项目状态
+    await DB.prepare('UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').bind(newStatus, projectId).run();
+    
+    // 记录工作流
+    await DB.prepare(`
+      INSERT INTO workflow_history (project_id, from_status, to_status, operator_id, remark)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(projectId, project.status, newStatus, user.userId, workflowRemark).run();
+    
+    return c.json({ 
+      success: true, 
+      scoring: scoringResult,
+      autoRejected: scoringResult.totalScore < 60
+    });
+  } catch (error: any) {
+    return c.json({ 
+      error: error.message || '评分失败',
+      category: project.product_category
+    }, 400);
+  }
 });
 
 // 审批操作
