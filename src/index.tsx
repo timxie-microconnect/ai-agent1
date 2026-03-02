@@ -393,10 +393,25 @@ app.get('/api/projects', authMiddleware, async (c) => {
     ORDER BY created_at DESC
   `).bind(user.userId).all();
   
+  // 状态文本映射
+  const getStatusText = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'pending': '待审核',
+      'scoring': '评分中',
+      'approved': '已通过',
+      'rejected': '已拒绝',
+      'contract_uploaded': '协议已上传',
+      'funded': '已放款'
+    };
+    return statusMap[status] || status;
+  };
+
   return c.json(results.map((p: any) => ({
     id: p.id,
     submissionCode: p.submission_code,
     status: p.status,
+    statusText: getStatusText(p.status),
+    projectName: p.company_name_a || '未命名项目',
     company_name: p.company_name_a || '未命名项目',
     main_category: p.main_category,
     level1_category: p.level1_category,
@@ -406,6 +421,13 @@ app.get('/api/projects', authMiddleware, async (c) => {
     settle_rate: p.settle_rate,
     daily_revenue_volatility: p.daily_revenue_volatility,
     sieve_score: p.sieve_score,
+    createdAt: p.created_at ? new Date(p.created_at).toLocaleString('zh-CN', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : '',
     created_at: p.created_at
   })));
 });

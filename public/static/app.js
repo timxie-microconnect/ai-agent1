@@ -876,11 +876,17 @@ window.openAdminProjectModal = async function(id) {
           ` : ''}
           
           <!-- 筛子评分按钮 -->
-          ${project.admission_result === '可评分' && !project.sieve_score ? `
+          ${!project.sieve_score && project.main_category && project.net_roi ? `
             <div id="sieveScoreSection">
               <button onclick="handleSieveScore(${id})" class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg text-lg font-bold">
                 <i class="fas fa-calculator mr-2"></i>筛子智能评分
               </button>
+              ${project.admission_result && project.admission_result !== '可评分' ? `
+                <div class="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                  <i class="fas fa-exclamation-triangle mr-2"></i>
+                  该项目准入检查未通过，但管理员可手动评分
+                </div>
+              ` : ''}
             </div>
           ` : project.sieve_score != null ? `
             <!-- 筛子评分结果 -->
