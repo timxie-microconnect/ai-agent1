@@ -244,17 +244,31 @@ function renderMainContent() {
             id="investmentAmount"
             name="investmentAmount" 
             step="1000" 
-            min="10000" 
+            min="5000" 
             required 
             value="${INVESTMENT_STATE.currentPlan.investmentAmount || ''}"
             oninput="calculateInvestmentPlan()"
             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
             placeholder="100000"
           >
-          <p class="text-sm text-gray-600 mt-1">
-            <i class="fas fa-info-circle mr-1"></i>
-            最低10,000元
-          </p>
+          <div class="flex items-center justify-between mt-1">
+            <p class="text-sm text-gray-600">
+              <i class="fas fa-info-circle mr-1"></i>
+              最低5,000元
+            </p>
+            <button 
+              type="button"
+              onclick="calculateMaxInvestment()"
+              class="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              <i class="fas fa-calculator mr-1"></i>
+              计算最高金额
+            </button>
+          </div>
+          <div id="maxInvestmentHint" class="text-sm text-green-600 mt-1" style="display:none">
+            <i class="fas fa-check-circle mr-1"></i>
+            最高可联营金额：¥<span id="maxInvestmentAmount">0</span>
+          </div>
         </div>
         
         <!-- 分成付款频率 -->
@@ -414,6 +428,35 @@ window.handleReuploadData = function() {
   }
 };
 
+// 计算最高可联营金额
+window.calculateMaxInvestment = function() {
+  if (!INVESTMENT_STATE.averageRevenue || INVESTMENT_STATE.averageRevenue <= 0) {
+    showAlert('请先上传90天收入数据', 'warning');
+    return;
+  }
+  
+  // 获取最长联营期限（从配置中获取，默认60天）
+  const maxPartnershipDays = INVESTMENT_STATE.config?.maxPartnershipDays || 60;
+  
+  // 最高可联营金额 = 平均每日净成交 × 最长联营期限
+  const maxInvestment = INVESTMENT_STATE.averageRevenue * maxPartnershipDays;
+  
+  // 显示结果
+  document.getElementById('maxInvestmentAmount').textContent = maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  document.getElementById('maxInvestmentHint').style.display = 'block';
+  
+  // 自动填充到输入框
+  document.getElementById('investmentAmount').value = Math.floor(maxInvestment);
+  
+  // 触发计算
+  calculateInvestmentPlan();
+  
+  // 保存到状态中
+  INVESTMENT_STATE.maxInvestment = maxInvestment;
+  
+  showAlert(`已计算最高可联营金额：¥${maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}（基于${maxPartnershipDays}天联营期限）`, 'success');
+};
+
 // 计算投资方案
 window.calculateInvestmentPlan = function() {
   const profitShareRatio = parseFloat(document.getElementById('profitShareRatio').value) / 100;
@@ -472,8 +515,13 @@ window.handleSaveInvestmentPlan = async function(event) {
     const investmentAmount = parseFloat(form.investmentAmount.value);
     const paymentFrequency = form.paymentFrequency.value;
     
-    if (investmentAmount < 10000) {
-      throw new Error('联营资金总额不能少于10,000元');
+    if (investmentAmount < 5000) {
+      throw new Error('联营资金总额不能少于5,000元');
+    }
+    
+    // 检查是否超过最高可联营金额
+    if (INVESTMENT_STATE.maxInvestment && investmentAmount > INVESTMENT_STATE.maxInvestment) {
+      throw new Error(`投资金额不能超过最高可联营金额 ¥${INVESTMENT_STATE.maxInvestment.toLocaleString()}`);
     }
     
     const result = await INVESTMENT_API.createInvestmentPlan(
