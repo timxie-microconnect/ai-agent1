@@ -37,15 +37,24 @@
 ✅ **尽调Checklist（三部分）**
 ✅ 工作流管理（协议上传、确认出资）
 ✅ **真实文件上传（协议PDF、尽调文件）**
+✅ **筛子系统集成（项目列表、详情、评分）**
+✅ **阈值配置管理（查看类目阈值）**
 ✅ 删除记录功能
 
 ### 🆕 抖店投流垫资准入筛子系统
 
-**系统特点：**
+**用户端功能：**
 - 📊 **1487条精确阈值**：覆盖13个主营类目、111个一级类目、1393个二级类目
 - 🎯 **智能兜底规则**：精确匹配 → 一级类目最严 → 主营类目最严
-- 🔍 **三级联动选择器**：支持中文、拼音搜索，实时阈值预览
+- 🔍 **三级联动选择器**：支持中文、拼音搜索，实时阈值预览（仅管理员可见）
 - ⚡ **四维度准入评分**：净成交ROI、14日结算ROI、14日订单结算率、历史消耗金额
+
+**管理员端功能：**
+- 📋 **项目列表增强**：显示类目路径、准入状态、筛子评分
+- 🔎 **项目详情增强**：展示四项指标实际值、准入结果、失败原因
+- 🎯 **智能评分按钮**：一键计算筛子评分（边际递减算法）
+- 📊 **评分详情展示**：四项指标分项得分、总分、通过/未达标标识
+- ⚙️ **阈值配置页面**：查看13个主营类目及其下级类目统计
 
 **评分算法：**
 ```
@@ -143,12 +152,13 @@
 
 ### 📱 快速导航
 - **🏠 导航页（推荐）**: [/nav](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/nav)
-- **💰 筛子融资申请**: [/apply-financing](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/apply-financing)
+- **💰 筛子融资申请**: 已集成到用户端首页表单
 - **🔥 筛子系统演示**: [/sieve-demo](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/sieve-demo)
 - **👤 用户登录**: [/login](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/login)
 - **🛡️ 管理员登录**: [/admin/login](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/admin/login)
 - **📊 管理后台**: [/admin](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/admin)
 - **⚙️ 评分配置**: [/admin/scoring-config](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/admin/scoring-config)
+- **🗄️ 阈值配置**: [/admin/thresholds](https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai/admin/thresholds)
 
 ### 默认测试账号
 
@@ -278,9 +288,9 @@ webapp/
 
 ### **🆕 筛子系统API**
 - **`GET /api/sieve/categories/tree` - 获取三级类目树结构**
-- **`GET /api/sieve/categories/search?q=关键词` - 搜索类目（支持模糊匹配）**
-- **`GET /api/sieve/thresholds?main_category=&level1_category=&level2_category=` - 获取类目阈值（支持兜底）**
-- **`POST /api/sieve/admission/check` - 准入检查（四项指标验证）**
+- **`GET /api/sieve/categories/search?q=关键词` - 搜索类目（支持模糊匹配+拼音）**
+- **`POST /api/sieve/categories/get-thresholds` - 获取类目阈值（支持兜底规则）**
+- **`POST /api/sieve/sieve/check-admission` - 准入检查（四项指标验证）**
 - **`POST /api/sieve/scoring/calculate/:projectId` - 计算筛子评分（边际递减算法）**
 
 ## 部署到Cloudflare Pages
@@ -350,11 +360,14 @@ npm run deploy:prod
 ## 重要更新
 
 ### V3.0 筛子系统 (2026-03-02)
+
+**用户端（100%完成）：**
 1. **抖店投流垫资准入筛子**
    - 1487条精确阈值数据导入
    - 三级类目联动选择器（13→111→1393）
    - 智能兜底规则（精确匹配→一级→主营）
    - 实时搜索（中文+拼音）
+   - 集成到用户端首页表单
 
 2. **四维度准入评分**
    - 净成交ROI（权重20%，k=3）
@@ -362,10 +375,35 @@ npm run deploy:prod
    - 14日订单结算率（权重30%，k=4）
    - 历史消耗金额（权重15%，k=1.5）
 
-3. **用户端融资申请表单**
-   - /apply-financing 页面集成
-   - 阈值实时预览
-   - 准入结果可视化展示
+3. **用户融资申请体验**
+   - 三级类目搜索选择（阈值对用户不可见）
+   - 四项指标填写
+   - 自动准入检查
+   - 可强制提交未达标项目
+
+**管理员端（95%完成）：**
+1. **项目列表增强**
+   - 显示类目路径（主营 > 一级 > 二级）
+   - 显示准入状态（可评分/未准入）
+   - 显示筛子评分（分数和通过状态）
+
+2. **项目详情增强**
+   - 完整展示四项指标实际值
+   - 显示准入结果和失败原因
+   - 一键智能评分按钮
+   - 详细评分计算过程（各项分数、提升幅度）
+
+3. **阈值配置管理**
+   - /admin/thresholds 页面
+   - 查看13个主营类目
+   - 显示各类目下一级和二级类目数量
+   - 预留详情查看和编辑功能
+
+**待优化功能（5%）：**
+- 阈值详情弹窗（查看所有二级类目的具体阈值）
+- 阈值在线编辑（管理员修改阈值）
+- 批量导入导出（Excel格式）
+- 版本管理（历史阈值记录）
 
 详见：[筛子系统升级报告](./SIEVE_SCORING_REPORT.md)
 
@@ -399,4 +437,4 @@ MIT License
 
 **最后更新**: 2026-03-02
 **版本**: 3.0.0
-**状态**: ✅ V3.0筛子系统用户端完成 | ⏳ 管理员端集成进行中
+**状态**: ✅ V3.0筛子系统用户端完成 | ✅ V3.0筛子系统管理员端95%完成
