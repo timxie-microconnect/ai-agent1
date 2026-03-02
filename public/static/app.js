@@ -536,13 +536,16 @@ window.handleFormSubmit = async function(event) {
       history_spend: parseInt(form.historySpend.value)
     };
     
-    const admissionResult = await axios.post('/api/sieve/admission/check', admissionData);
+    const admissionResult = await axios.post('/api/sieve/check-admission', admissionData);
     
     // 如果未通过准入，显示结果但仍然提交
-    if (admissionResult.data.data.admission_result !== '可评分') {
+    const isAdmitted = admissionResult.data.data.is_admitted;
+    const admissionStatus = isAdmitted ? '可评分' : '未准入/不通过';
+    
+    if (!isAdmitted) {
       const confirmSubmit = confirm(
-        `准入检查结果：${admissionResult.data.data.admission_result}\n` +
-        `原因：${admissionResult.data.data.fail_reasons.join('；')}\n\n` +
+        `准入检查结果：${admissionStatus}\n` +
+        `原因：${admissionResult.data.data.reasons.join('；')}\n\n` +
         `是否仍要提交项目？（提交后将标记为"未准入"状态）`
       );
       
@@ -551,7 +554,7 @@ window.handleFormSubmit = async function(event) {
       }
       
       // 标记为未准入
-      projectData.step2.admissionResult = admissionResult.data.data.admission_result;
+      projectData.step2.admissionResult = admissionStatus;
       projectData.step2.admissionDetails = JSON.stringify(admissionResult.data.data);
     } else {
       // 通过准入
