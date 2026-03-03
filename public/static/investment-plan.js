@@ -1056,7 +1056,7 @@ window.saveListingDraft = async function() {
       const investmentData = {
         investment_amount: investmentAmount,
         profit_share_ratio: profitShareRatio / 100, // 转换为小数
-        repayment_frequency: paymentFrequency
+        payment_frequency: paymentFrequency // 使用正确的字段名
       };
       
       await axios.post(
@@ -1148,10 +1148,15 @@ function collectFormData() {
   // 添加已上传的文件信息
   if (window.UPLOADED_FILES) {
     Object.keys(window.UPLOADED_FILES).forEach(fieldName => {
-      data[fieldName] = JSON.stringify(window.UPLOADED_FILES[fieldName]);
+      const fileInfo = window.UPLOADED_FILES[fieldName];
+      // 确保文件信息是对象，然后转换为JSON字符串
+      if (fileInfo && typeof fileInfo === 'object') {
+        data[fieldName] = JSON.stringify(fileInfo);
+      }
     });
   }
   
+  console.log('收集的表单数据:', data);
   return data;
 }
 
