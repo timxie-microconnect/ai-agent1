@@ -1054,9 +1054,9 @@ window.saveListingDraft = async function() {
       }
       
       const investmentData = {
-        investment_amount: investmentAmount,
-        profit_share_ratio: profitShareRatio / 100, // 转换为小数
-        payment_frequency: paymentFrequency // 使用正确的字段名
+        investmentAmount: investmentAmount,
+        profitShareRatio: profitShareRatio, // 保持百分比形式，不除以100
+        paymentFrequency: paymentFrequency
       };
       
       await axios.post(

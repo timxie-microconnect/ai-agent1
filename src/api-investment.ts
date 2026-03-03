@@ -224,7 +224,12 @@ app.post('/projects/:id/investment-plan', async (c) => {
     
     const investmentAmount = parseFloat(body.investmentAmount)
     const paymentFrequency = body.paymentFrequency // 'daily', 'weekly', 'biweekly'
-    const profitShareRatio = parseFloat(body.profitShareRatio)
+    let profitShareRatio = parseFloat(body.profitShareRatio)
+    
+    // 如果比例大于1，说明是百分比形式（如15），转换为小数形式（0.15）
+    if (profitShareRatio > 1) {
+      profitShareRatio = profitShareRatio / 100
+    }
     
     // 获取项目的90天数据
     const project = await db.prepare(`
