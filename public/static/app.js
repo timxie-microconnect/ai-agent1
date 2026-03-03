@@ -1809,15 +1809,26 @@ window.downloadAllFiles = async function(projectId) {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        // 创建隐藏的a标签触发下载
-        const a = document.createElement('a');
-        a.href = file.url;
-        a.download = `${projectCode}_${file.name}_${file.originalName}`;
-        // 移除 target='_blank'，避免打开新页面导致404
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        // 检查是否是base64数据URL
+        if (file.url.startsWith('data:')) {
+          // 处理base64数据URL
+          const a = document.createElement('a');
+          a.href = file.url;
+          a.download = `${projectCode}_${file.name}_${file.originalName}`;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else {
+          // 处理普通URL
+          const a = document.createElement('a');
+          a.href = file.url;
+          a.download = `${projectCode}_${file.name}_${file.originalName}`;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
         
         successCount++;
         

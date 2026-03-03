@@ -925,19 +925,30 @@ window.markFormDirty = function() {
 
 // 模拟文件上传到CDN
 async function uploadFileToCDN(file) {
-  // 模拟上传延迟
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // 模拟CDN URL
-  const fakeUrl = `https://cdn.mcex-listing-docs.com/${Date.now()}-${file.name}`;
-  
-  return {
-    file_name: file.name,
-    file_url: fakeUrl,
-    file_size: file.size,
-    file_type: file.type,
-    uploaded_at: new Date().toISOString()
-  };
+  // 将文件转换为base64编码（用于本地开发）
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+      const base64Data = e.target.result; // data:image/png;base64,iVBORw0KG...
+      
+      // 创建一个包含base64数据的对象
+      resolve({
+        file_name: file.name,
+        file_url: base64Data, // 使用base64数据URL代替远程URL
+        file_size: file.size,
+        file_type: file.type,
+        uploaded_at: new Date().toISOString()
+      });
+    };
+    
+    reader.onerror = function(error) {
+      reject(error);
+    };
+    
+    // 读取文件为base64数据URL
+    reader.readAsDataURL(file);
+  });
 }
 
 // 处理文件选择
