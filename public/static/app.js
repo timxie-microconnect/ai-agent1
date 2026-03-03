@@ -1657,7 +1657,11 @@ window.viewFullListingInfo = async function(projectId) {
           </div>
         </div>
         
-        <div class="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end">
+        <div class="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-between">
+          <button onclick="exportListingToExcel(${projectId})" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+            <i class="fas fa-file-excel"></i>
+            导出Excel
+          </button>
           <button onclick="document.getElementById('listingDetailModal').remove()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
             <i class="fas fa-times mr-2"></i>关闭
           </button>
@@ -1698,6 +1702,62 @@ window.handleListingApprove = async function(projectId, action) {
     } catch (error) {
       showAlert(error.message, 'error');
     }
+  }
+};
+
+// 导出挂牌信息为Excel
+window.exportListingToExcel = async function(projectId) {
+  try {
+    showAlert('正在生成Excel文件...', 'info');
+    
+    // 调用后端API获取数据
+    const response = await axios.get(`/api/investment/projects/${projectId}/listing-info/export`, {
+      headers: { 'Authorization': `Bearer ${STATE.token}` }
+    });
+    
+    if (!response.data.success) {
+      throw new Error(response.data.error || '导出失败');
+    }
+    
+    const excelData = response.data.data;
+    const filename = response.data.filename;
+    
+    // 动态加载xlsx库
+    if (!window.XLSX) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      document.head.appendChild(script);
+      
+      await new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('加载xlsx库失败'));
+      });
+    }
+    
+    // 转换数据为二维数组格式
+    const headers = Object.keys(excelData);
+    const values = Object.values(excelData);
+    const wsData = [headers, values];
+    
+    // 创建工作表
+    const ws = window.XLSX.utils.aoa_to_sheet(wsData);
+    
+    // 设置列宽
+    const colWidths = headers.map(h => ({ wch: Math.max(h.length + 5, 15) }));
+    ws['!cols'] = colWidths;
+    
+    // 创建工作簿
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '挂牌信息');
+    
+    // 导出文件
+    window.XLSX.writeFile(wb, filename);
+    
+    showAlert('Excel文件导出成功！', 'success');
+    
+  } catch (error) {
+    console.error('导出Excel失败:', error);
+    showAlert('导出失败: ' + error.message, 'error');
   }
 };
 

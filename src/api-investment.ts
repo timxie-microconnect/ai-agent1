@@ -486,3 +486,149 @@ app.get('/projects/:id/listing-info', async (c) => {
   }
 })
 
+// ==========================================
+// 导出挂牌信息为Excel
+// ==========================================
+app.get('/projects/:id/listing-info/export', async (c) => {
+  try {
+    const projectId = c.req.param('id')
+    const db = c.env.DB
+    
+    // 获取项目基本信息（包括投资方案信息）
+    const project = await db.prepare(`
+      SELECT 
+        submission_code, status, created_at,
+        investment_amount, profit_share_ratio, repayment_frequency,
+        daily_repayment, estimated_days, annual_rate, total_return_amount
+      FROM projects WHERE id = ?
+    `).bind(projectId).first()
+    
+    if (!project) {
+      return c.json({ success: false, error: '项目不存在' }, 404)
+    }
+    
+    // 获取挂牌信息
+    const listingInfo = await db.prepare(`
+      SELECT * FROM listing_info WHERE project_id = ?
+    `).bind(projectId).first()
+    
+    if (!listingInfo) {
+      return c.json({ success: false, error: '未找到挂牌信息' }, 404)
+    }
+    
+    // 构建Excel数据
+    const excelData: any = {
+      '项目编号': project.submission_code,
+      '项目状态': project.status,
+      '创建时间': project.created_at,
+      
+      // 投资方案信息
+      '联营资金总额（元）': project.investment_amount || '-',
+      '分成比例': project.profit_share_ratio ? `${(project.profit_share_ratio * 100).toFixed(2)}%` : '-',
+      '回款频率': project.repayment_frequency || '-',
+      '每日回款金额（元）': project.daily_repayment || '-',
+      '预计联营天数': project.estimated_days || '-',
+      '年化利率': project.annual_rate ? `${(project.annual_rate * 100).toFixed(2)}%` : '-',
+      '总支付金额（元）': project.total_return_amount || '-',
+      
+      // 1. 挂牌主体工商信息
+      '企业中文名称': listingInfo.company_name || '-',
+      '注册编号': listingInfo.registration_number || '-',
+      '注册地址': listingInfo.registered_address || '-',
+      '企业成立日期': listingInfo.establishment_date || '-',
+      '主题业态': listingInfo.business_format || '-',
+      '主营业务简介': listingInfo.business_intro || '-',
+      '经营范围': listingInfo.business_scope || '-',
+      
+      // 2. 法定代表人
+      '法定代表人中文姓名': listingInfo.legal_rep_name || '-',
+      '法定代表人证件类型': listingInfo.legal_rep_id_type || '-',
+      '法定代表人证件号码': listingInfo.legal_rep_id_number || '-',
+      '法定代表人实际居住地址': listingInfo.legal_rep_address || '-',
+      '法定代表人电邮': listingInfo.legal_rep_email || '-',
+      '法定代表人电话': listingInfo.legal_rep_phone || '-',
+      
+      // 3. 实控人
+      '实控人中文姓名': listingInfo.actual_controller_name || '-',
+      '实控人证件类型': listingInfo.actual_controller_id_type || '-',
+      '实控人证件号码': listingInfo.actual_controller_id_number || '-',
+      '实控人实际居住地址': listingInfo.actual_controller_address || '-',
+      '实控人电邮': listingInfo.actual_controller_email || '-',
+      '实控人电话': listingInfo.actual_controller_phone || '-',
+      
+      // 4. 实益拥有人
+      '实益拥有人中文姓名': listingInfo.beneficial_owner_name || '-',
+      '实益拥有人证件类型': listingInfo.beneficial_owner_id_type || '-',
+      '实益拥有人证件号码': listingInfo.beneficial_owner_id_number || '-',
+      '实益拥有人实际居住地址': listingInfo.beneficial_owner_address || '-',
+      '实益拥有人电邮': listingInfo.beneficial_owner_email || '-',
+      '实益拥有人电话': listingInfo.beneficial_owner_phone || '-',
+      
+      // 5. 准入条件
+      '存续时间不短于12个月': listingInfo.condition_1 || '-',
+      '存续时间说明': listingInfo.condition_1_note || '-',
+      '最近连续365日合计营业额不低于500万人民币': listingInfo.condition_2 || '-',
+      '营业额说明': listingInfo.condition_2_note || '-',
+      '有可靠且运营情况良好的收入管控系统': listingInfo.condition_3 || '-',
+      '整体营收状况良好，能够达到营收能力要求': listingInfo.condition_4 || '-',
+      '不存在重大法律合规风险': listingInfo.condition_5 || '-',
+      
+      // 6. 企业预计营收信息
+      '2026年营业总收入/门店数': listingInfo.revenue_2026 || '-',
+      '2027年营业总收入/门店数': listingInfo.revenue_2027 || '-',
+      '2028年营业总收入/门店数': listingInfo.revenue_2028 || '-',
+      '2029年营业总收入/门店数': listingInfo.revenue_2029 || '-',
+      
+      // 7. 授权人信息
+      '授权人中文姓名': listingInfo.authorizer_name || '-',
+      '授权人证件类型': listingInfo.authorizer_id_type || '-',
+      '授权人证件号码': listingInfo.authorizer_id_number || '-',
+      '授权人实际居住地址': listingInfo.authorizer_address || '-',
+      '授权人电邮': listingInfo.authorizer_email || '-',
+      '授权人电话': listingInfo.authorizer_phone || '-',
+      
+      // 文件链接
+      '企业注册证书+公章': parseFileUrl(listingInfo.file_company_registration),
+      '法定代表人身份证件（正反面）': parseFileUrl(listingInfo.file_legal_rep_id),
+      '法定代表人住址证明': parseFileUrl(listingInfo.file_legal_rep_address_proof),
+      '实际控制人身份证件（正反面）': parseFileUrl(listingInfo.file_actual_controller_id),
+      '实际控制人住址证明': parseFileUrl(listingInfo.file_actual_controller_address_proof),
+      '实控人证明文件+公章': parseFileUrl(listingInfo.file_actual_controller_proof),
+      '实益拥有人身份证件（正反面）': parseFileUrl(listingInfo.file_beneficial_owner_id),
+      '实益拥有人住址证明': parseFileUrl(listingInfo.file_beneficial_owner_address_proof),
+      '存续时间证明文件': parseFileUrl(listingInfo.file_condition_1_proof),
+      '营业额证明文件+公章': parseFileUrl(listingInfo.file_condition_2_proof),
+      '未来12个月预估营业额信息+公章': parseFileUrl(listingInfo.file_revenue_forecast),
+      '董事会成员及其他主要人员名册+公章': parseFileUrl(listingInfo.file_directors_list),
+      '董事会书面决议授权+公章': parseFileUrl(listingInfo.file_board_resolution),
+      '电邮申请说明+公章+授权人/法人签名': parseFileUrl(listingInfo.file_email_authorization),
+      
+      // 提交信息
+      '是否已提交': listingInfo.is_submitted ? '是' : '否',
+      '提交时间': listingInfo.submitted_at || '-'
+    }
+    
+    // 辅助函数：解析文件URL
+    function parseFileUrl(fileData: any): string {
+      if (!fileData) return '-'
+      try {
+        const fileInfo = typeof fileData === 'string' ? JSON.parse(fileData) : fileData
+        return fileInfo?.file_url || '-'
+      } catch {
+        return '-'
+      }
+    }
+    
+    // 返回JSON数据，前端使用xlsx库生成Excel
+    return c.json({
+      success: true,
+      data: excelData,
+      filename: `挂牌信息_${project.submission_code}_${new Date().toISOString().split('T')[0]}.xlsx`
+    })
+    
+  } catch (error: any) {
+    console.error('导出Excel失败:', error)
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+
