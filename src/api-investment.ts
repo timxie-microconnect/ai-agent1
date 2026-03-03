@@ -643,3 +643,82 @@ app.get('/projects/:id/listing-info/export', async (c) => {
   }
 })
 
+// ==========================================
+// 获取所有KYC文件下载链接
+// ==========================================
+app.get('/projects/:id/listing-files', async (c) => {
+  try {
+    const projectId = c.req.param('id')
+    const db = c.env.DB
+    
+    // 获取项目基本信息
+    const project = await db.prepare(`
+      SELECT submission_code FROM projects WHERE id = ?
+    `).bind(projectId).first()
+    
+    if (!project) {
+      return c.json({ success: false, error: '项目不存在' }, 404)
+    }
+    
+    // 获取挂牌信息（包含所有文件）
+    const listingInfo = await db.prepare(`
+      SELECT * FROM listing_info WHERE project_id = ?
+    `).bind(projectId).first()
+    
+    if (!listingInfo) {
+      return c.json({ success: false, error: '未找到挂牌信息' }, 404)
+    }
+    
+    // 辅助函数：解析文件信息
+    const parseFileInfo = (fileData: any, fileName: string) => {
+      if (!fileData) return null
+      try {
+        const fileInfo = typeof fileData === 'string' ? JSON.parse(fileData) : fileData
+        if (fileInfo && fileInfo.file_url) {
+          return {
+            name: fileName,
+            originalName: fileInfo.file_name,
+            url: fileInfo.file_url,
+            size: fileInfo.file_size,
+            type: fileInfo.file_type
+          }
+        }
+      } catch (e) {
+        console.warn('解析文件信息失败:', fileName, e)
+      }
+      return null
+    }
+    
+    // 收集所有文件
+    const files = [
+      parseFileInfo(listingInfo.file_company_registration, '1_企业注册证书+公章'),
+      parseFileInfo(listingInfo.file_legal_rep_id, '2_法定代表人身份证件（正反面）'),
+      parseFileInfo(listingInfo.file_legal_rep_address_proof, '2_法定代表人住址证明'),
+      parseFileInfo(listingInfo.file_actual_controller_id, '3_实际控制人身份证件（正反面）'),
+      parseFileInfo(listingInfo.file_actual_controller_address_proof, '3_实际控制人住址证明'),
+      parseFileInfo(listingInfo.file_actual_controller_proof, '3_实控人证明文件+公章'),
+      parseFileInfo(listingInfo.file_beneficial_owner_id, '4_实益拥有人身份证件（正反面）'),
+      parseFileInfo(listingInfo.file_beneficial_owner_address_proof, '4_实益拥有人住址证明'),
+      parseFileInfo(listingInfo.file_condition_1_proof, '5_存续时间证明文件'),
+      parseFileInfo(listingInfo.file_condition_2_proof, '5_营业额证明文件+公章'),
+      parseFileInfo(listingInfo.file_revenue_forecast, '6_未来12个月预估营业额信息+公章'),
+      parseFileInfo(listingInfo.file_directors_list, '7_董事会成员及其他主要人员名册+公章'),
+      parseFileInfo(listingInfo.file_board_resolution, '7_董事会书面决议授权+公章'),
+      parseFileInfo(listingInfo.file_email_authorization, '7_电邮申请说明+公章+授权人法人签名')
+    ].filter(f => f !== null)
+    
+    return c.json({
+      success: true,
+      data: {
+        projectCode: project.submission_code,
+        files: files,
+        totalCount: files.length
+      }
+    })
+    
+  } catch (error: any) {
+    console.error('获取文件列表失败:', error)
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
+

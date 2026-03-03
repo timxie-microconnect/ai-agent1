@@ -1662,10 +1662,16 @@ window.viewFullListingInfo = async function(projectId) {
         </div>
         
         <div class="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-between">
-          <button onclick="exportListingToExcel(${projectId})" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
-            <i class="fas fa-file-excel"></i>
-            导出Excel
-          </button>
+          <div class="flex gap-3">
+            <button onclick="exportListingToExcel(${projectId})" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+              <i class="fas fa-file-excel"></i>
+              导出Excel
+            </button>
+            <button onclick="downloadAllFiles(${projectId})" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+              <i class="fas fa-download"></i>
+              下载所有文件
+            </button>
+          </div>
           <button onclick="document.getElementById('listingDetailModal').remove()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
             <i class="fas fa-times mr-2"></i>关闭
           </button>
@@ -1764,6 +1770,75 @@ window.exportListingToExcel = async function(projectId) {
   } catch (error) {
     console.error('导出Excel失败:', error);
     showAlert('导出失败: ' + error.message, 'error');
+  }
+};
+
+// 下载所有KYC文件
+window.downloadAllFiles = async function(projectId) {
+  try {
+    showAlert('正在获取文件列表...', 'info');
+    
+    // 获取所有文件信息
+    const response = await axios.get(`/api/investment/projects/${projectId}/listing-files`, {
+      headers: { 'Authorization': `Bearer ${STATE.token}` }
+    });
+    
+    if (!response.data.success) {
+      throw new Error(response.data.error || '获取文件列表失败');
+    }
+    
+    const { projectCode, files, totalCount } = response.data.data;
+    
+    if (totalCount === 0) {
+      showAlert('没有可下载的文件', 'warning');
+      return;
+    }
+    
+    // 确认下载
+    if (!confirm(`共有 ${totalCount} 个文件，是否开始下载？\n\n提示：浏览器会逐个下载文件，请允许多个下载请求。`)) {
+      return;
+    }
+    
+    showAlert(`开始下载 ${totalCount} 个文件...`, 'info');
+    
+    // 逐个下载文件
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        // 创建隐藏的a标签触发下载
+        const a = document.createElement('a');
+        a.href = file.url;
+        a.download = `${projectCode}_${file.name}_${file.originalName}`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        successCount++;
+        
+        // 延迟避免浏览器阻止多个下载
+        if (i < files.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error('下载文件失败:', file.name, error);
+        failCount++;
+      }
+    }
+    
+    // 显示结果
+    if (failCount === 0) {
+      showAlert(`成功触发 ${successCount} 个文件下载！`, 'success');
+    } else {
+      showAlert(`成功: ${successCount} 个，失败: ${failCount} 个`, 'warning');
+    }
+    
+  } catch (error) {
+    console.error('下载文件失败:', error);
+    showAlert('下载失败: ' + error.message, 'error');
   }
 };
 
