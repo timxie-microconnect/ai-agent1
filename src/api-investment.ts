@@ -397,6 +397,18 @@ app.post('/projects/:id/listing-info', async (c) => {
     const db = c.env.DB
     const body = await c.req.json()
     
+    // 调试：打印接收到的数据
+    console.log('=== 接收到的listing-info数据 ===')
+    console.log('项目ID:', projectId)
+    console.log('字段数量:', Object.keys(body).length)
+    // 检查每个字段的类型
+    for (const [key, value] of Object.entries(body)) {
+      const valueType = typeof value
+      if (valueType === 'object' && value !== null) {
+        console.log(`字段 ${key}: [object] ${JSON.stringify(value).substring(0, 100)}`)
+      }
+    }
+    
     // 检查项目是否存在
     const project = await db.prepare(`
       SELECT id FROM projects WHERE id = ?
@@ -442,7 +454,18 @@ app.post('/projects/:id/listing-info', async (c) => {
     if (existing) {
       // 更新现有记录
       const setClause = fields.map(f => `${f} = ?`).join(', ')
-      const values = fields.map(f => body[f] || null)
+      // 确保所有值都是原始类型或null，对象类型转换为JSON字符串
+      const values = fields.map(f => {
+        const value = body[f]
+        if (value === undefined || value === null || value === '') {
+          return null
+        }
+        // 如果是对象，转换为JSON字符串
+        if (typeof value === 'object') {
+          return JSON.stringify(value)
+        }
+        return value
+      })
       
       await db.prepare(`
         UPDATE listing_info 
@@ -456,7 +479,18 @@ app.post('/projects/:id/listing-info', async (c) => {
       // 插入新记录
       const columns = ['project_id', ...fields, 'is_submitted', 'submitted_at']
       const placeholders = columns.map(() => '?').join(', ')
-      const values = [projectId, ...fields.map(f => body[f] || null), isSubmitted ? 1 : 0, isSubmitted ? now : null]
+      // 确保所有值都是原始类型或null，对象类型转换为JSON字符串
+      const values = [projectId, ...fields.map(f => {
+        const value = body[f]
+        if (value === undefined || value === null || value === '') {
+          return null
+        }
+        // 如果是对象，转换为JSON字符串
+        if (typeof value === 'object') {
+          return JSON.stringify(value)
+        }
+        return value
+      }), isSubmitted ? 1 : 0, isSubmitted ? now : null]
       
       await db.prepare(`
         INSERT INTO listing_info (${columns.join(', ')})
