@@ -515,17 +515,32 @@ window.calculateInvestmentPlan = function() {
   const investmentAmount = parseFloat(document.getElementById('investmentAmount').value);
   const paymentFrequency = document.getElementById('paymentFrequency').value;
   
-  // 更新最高联营金额显示（公式：平均每日净成交 × 分成比例 × 60天）
+  // 获取年化收益率
+  const rates = {
+    daily: 0.13,
+    weekly: 0.15,
+    biweekly: 0.18
+  };
+  const annualRate = rates[paymentFrequency] || 0.18;
+  
+  // 更新最高和最低联营金额显示
   if (INVESTMENT_STATE.averageRevenue > 0 && profitShareRatio > 0) {
-    const maxPartnershipDays = INVESTMENT_STATE.config?.maxPartnershipDays || 60;
-    // 正确公式：最高联营金额 = 平均每日净成交 × 分成比例 × 最长联营期限
-    const maxInvestment = INVESTMENT_STATE.averageRevenue * profitShareRatio * maxPartnershipDays;
+    // 最高联营金额 = 平均日净成交 × 分成比例 × 56天 × (1 + 年化收益率 × 56/360)
+    const maxDays = 56;
+    const maxInvestment = INVESTMENT_STATE.averageRevenue * profitShareRatio * maxDays * (1 + annualRate * maxDays / 360);
     document.getElementById('maxInvestmentDisplay').textContent = maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     INVESTMENT_STATE.maxInvestment = maxInvestment;
+    
+    // 最低联营金额 = 平均日净成交 × 分成比例 × 14天 × (1 + 年化收益率 × 14/360)
+    const minDays = 14;
+    const minInvestment = INVESTMENT_STATE.averageRevenue * profitShareRatio * minDays * (1 + annualRate * minDays / 360);
+    document.getElementById('minInvestmentDisplay').textContent = minInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    INVESTMENT_STATE.minInvestment = minInvestment;
   }
   
   if (!profitShareRatio || !investmentAmount || investmentAmount <= 0) {
     document.getElementById('calculationResult').style.display = 'none';
+    document.getElementById('batchingResult').style.display = 'none';
     return;
   }
   
@@ -535,36 +550,183 @@ window.calculateInvestmentPlan = function() {
   // 计算预计联营天数 = 联营资金总额 ÷ 每日回款金额
   const estimatedDays = Math.ceil(investmentAmount / dailyRepayment);
   
-  // 获取年化收益率
-  const rates = {
-    daily: 0.13,
-    weekly: 0.15,
-    biweekly: 0.18
-  };
-  const annualRate = rates[paymentFrequency];
+  // 判断是否需要分批
+  const needBatching = estimatedDays > 14;
   
-  // 计算总支付金额（YITO封顶）= 投资金额 × (1 + 年化率 × 天数 / 360)
-  const totalAmount = investmentAmount * (1 + annualRate * estimatedDays / 360);
-  
-  // 显示结果
-  document.getElementById('calculationResult').style.display = 'block';
-  document.getElementById('dailyRepayment').textContent = '¥' + dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-  document.getElementById('estimatedDays').textContent = estimatedDays + '天';
-  document.getElementById('annualRate').textContent = (annualRate * 100).toFixed(0) + '%';
-  document.getElementById('totalAmount').textContent = '¥' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-  
-  // 更新公式
-  document.getElementById('formulaAvgRevenue').textContent = INVESTMENT_STATE.averageRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-  document.getElementById('formulaProfitShare').textContent = (profitShareRatio * 100).toFixed(2);
-  document.getElementById('formulaDailyRepay').textContent = dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-  document.getElementById('formulaInvestAmount').textContent = investmentAmount.toLocaleString();
-  document.getElementById('formulaDailyRepay2').textContent = dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-  document.getElementById('formulaDays').textContent = estimatedDays;
-  document.getElementById('formulaInvestAmount2').textContent = investmentAmount.toLocaleString();
-  document.getElementById('formulaRate').textContent = (annualRate * 100).toFixed(0);
-  document.getElementById('formulaDays2').textContent = estimatedDays;
-  document.getElementById('formulaTotal').textContent = totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  if (needBatching) {
+    // 分批逻辑：每批14天
+    const batchPeriod = 14;
+    // 每批金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)
+    const batchAmount = dailyRepayment * batchPeriod * (1 + annualRate * batchPeriod / 360);
+    // 批次数
+    const batchCount = Math.ceil(investmentAmount / batchAmount);
+    // 最后一批可能金额不同
+    const lastBatchAmount = investmentAmount - (batchCount - 1) * batchAmount;
+    
+    // 显示分批结果
+    document.getElementById('calculationResult').style.display = 'none';
+    document.getElementById('batchingResult').style.display = 'block';
+    
+    document.getElementById('batchCount').textContent = batchCount;
+    document.getElementById('batchAmount').textContent = '¥' + batchAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('lastBatchAmount').textContent = '¥' + lastBatchAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    
+    // 生成时间线
+    renderBatchTimeline(batchCount, batchAmount, lastBatchAmount, dailyRepayment, paymentFrequency, annualRate);
+    
+  } else {
+    // 单批逻辑（不超过14天）
+    // 计算总支付金额（YITO封顶）= 投资金额 × (1 + 年化率 × 天数 / 360)
+    const totalAmount = investmentAmount * (1 + annualRate * estimatedDays / 360);
+    
+    // 显示单批结果
+    document.getElementById('calculationResult').style.display = 'block';
+    document.getElementById('batchingResult').style.display = 'none';
+    
+    document.getElementById('dailyRepayment').textContent = '¥' + dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('estimatedDays').textContent = estimatedDays + '天';
+    document.getElementById('annualRate').textContent = (annualRate * 100).toFixed(0) + '%';
+    document.getElementById('totalAmount').textContent = '¥' + totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    
+    // 更新公式
+    document.getElementById('formulaAvgRevenue').textContent = INVESTMENT_STATE.averageRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('formulaProfitShare').textContent = (profitShareRatio * 100).toFixed(2);
+    document.getElementById('formulaDailyRepay').textContent = dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('formulaInvestAmount').textContent = investmentAmount.toLocaleString();
+    document.getElementById('formulaDailyRepay2').textContent = dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('formulaDays').textContent = estimatedDays;
+    document.getElementById('formulaInvestAmount2').textContent = investmentAmount.toLocaleString();
+    document.getElementById('formulaRate').textContent = (annualRate * 100).toFixed(0);
+    document.getElementById('formulaDays2').textContent = estimatedDays;
+    document.getElementById('formulaTotal').textContent = totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
 };
+
+// 渲染分批出资时间线
+function renderBatchTimeline(batchCount, batchAmount, lastBatchAmount, dailyRepayment, paymentFrequency, annualRate) {
+  // 获取开始日期
+  const startDateInput = document.getElementById('startDate');
+  let startDate;
+  
+  if (startDateInput && startDateInput.value) {
+    startDate = new Date(startDateInput.value);
+  } else {
+    // 默认明天
+    startDate = new Date();
+    startDate.setDate(startDate.setDate() + 1);
+  }
+  
+  const timelineHTML = [];
+  let currentDate = new Date(startDate);
+  
+  for (let i = 0; i < batchCount; i++) {
+    const isLastBatch = (i === batchCount - 1);
+    const currentBatchAmount = isLastBatch ? lastBatchAmount : batchAmount;
+    const batchDays = 14;
+    
+    // 出资日期
+    const fundingDate = new Date(currentDate);
+    
+    // YITO封顶日期 = 出资日期 + 14天
+    const yitoDate = new Date(fundingDate);
+    yitoDate.setDate(yitoDate.getDate() + batchDays);
+    
+    // 计算这一批的分成付款日期
+    const paymentDates = [];
+    if (paymentFrequency === 'daily') {
+      // 每日付款：14次
+      for (let d = 1; d <= batchDays; d++) {
+        const payDate = new Date(fundingDate);
+        payDate.setDate(payDate.getDate() + d);
+        paymentDates.push(formatDate(payDate));
+      }
+    } else if (paymentFrequency === 'weekly') {
+      // 每周付款：2次
+      const payDate1 = new Date(fundingDate);
+      payDate1.setDate(payDate1.getDate() + 7);
+      paymentDates.push(formatDate(payDate1));
+      
+      const payDate2 = new Date(fundingDate);
+      payDate2.setDate(payDate2.getDate() + 14);
+      paymentDates.push(formatDate(payDate2));
+    } else if (paymentFrequency === 'biweekly') {
+      // 每两周付款：1次（YITO封顶时）
+      paymentDates.push(formatDate(yitoDate));
+    }
+    
+    timelineHTML.push(`
+      <div class="bg-white border-2 border-purple-300 rounded-lg p-6 mb-4">
+        <div class="flex items-center justify-between mb-4">
+          <h4 class="text-lg font-bold text-purple-700">
+            <i class="fas fa-layer-group mr-2"></i>
+            第 ${i + 1} 批出资
+          </h4>
+          <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
+            ¥${currentBatchAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}
+          </span>
+        </div>
+        
+        <div class="space-y-3">
+          <!-- 出资日期 -->
+          <div class="flex items-start">
+            <div class="flex-shrink-0 w-32 text-gray-600 font-medium">
+              <i class="fas fa-calendar-plus text-green-600 mr-2"></i>
+              出资日期
+            </div>
+            <div class="font-semibold text-gray-800">
+              ${formatDate(fundingDate)}
+            </div>
+          </div>
+          
+          <!-- 分成付款日期 -->
+          <div class="flex items-start">
+            <div class="flex-shrink-0 w-32 text-gray-600 font-medium">
+              <i class="fas fa-hand-holding-usd text-blue-600 mr-2"></i>
+              分成付款
+            </div>
+            <div class="flex-1">
+              <div class="text-sm text-gray-700">
+                ${paymentDates.map((date, idx) => `
+                  <div class="inline-block mr-4 mb-2">
+                    <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded">
+                      第${idx + 1}次: ${date}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+          
+          <!-- YITO封顶日期 -->
+          <div class="flex items-start">
+            <div class="flex-shrink-0 w-32 text-gray-600 font-medium">
+              <i class="fas fa-flag-checkered text-orange-600 mr-2"></i>
+              YITO封顶
+            </div>
+            <div class="font-semibold text-orange-600">
+              ${formatDate(yitoDate)}
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+    
+    // 下一批出资日期 = 当前批YITO日期
+    currentDate = new Date(yitoDate);
+  }
+  
+  document.getElementById('timelineContainer').innerHTML = timelineHTML.join('');
+}
+
+// 格式化日期为 YYYY-MM-DD (星期X)
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  const weekday = weekdays[date.getDay()];
+  return `${year}-${month}-${day} (${weekday})`;
+}
 
 // 保存投资方案
 window.handleSaveInvestmentPlan = async function(event) {
