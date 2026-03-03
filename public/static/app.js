@@ -1032,10 +1032,6 @@ window.openAdminProjectModal = async function(id) {
               <div id="listingInfoSection" class="mt-4">
                 <!-- 这里将自动加载投资方案和挂牌信息审核界面 -->
               </div>
-              <script>
-                // 自动加载投资方案和挂牌信息
-                loadInvestmentPlanAndListingInfo(${id});
-              </script>
             ` : project.status === 'contract_uploaded' ? `
               <div class="bg-yellow-50 p-4 rounded mb-4">
                 <p class="text-yellow-700 font-semibold"><i class="fas fa-file-contract mr-2"></i>协议已上传</p>
@@ -1062,6 +1058,13 @@ window.openAdminProjectModal = async function(id) {
     `;
     
     document.body.appendChild(modal);
+    
+    // 如果项目已通过审批，自动加载投资方案和挂牌信息
+    if (project.status === 'approved') {
+      setTimeout(() => {
+        window.loadInvestmentPlanAndListingInfo(id);
+      }, 100);
+    }
   } catch (error) {
     showAlert(error.message, 'error');
   }
@@ -1157,7 +1160,8 @@ window.loadInvestmentPlanAndListingInfo = async function(projectId) {
     }
     
     // 如果已提交，显示审核界面
-    if (listingData && listingData.is_submitted) {
+    // 注意：is_submitted在数据库中是0或1，需要转换为布尔值判断
+    if (listingData && (listingData.is_submitted === 1 || listingData.is_submitted === true)) {
       section.innerHTML = `
         <div class="border-2 border-green-500 rounded-lg p-6 bg-green-50">
           <h3 class="text-2xl font-bold text-green-800 mb-4">
