@@ -622,7 +622,8 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "establishment_date", "label": "企业成立日期", "type": "date", "required": true},
       {"name": "business_format", "label": "主题业态", "type": "text", "placeholder": "主要行业", "required": true},
       {"name": "business_intro", "label": "主营业务简介", "type": "textarea", "placeholder": "相关行业简介", "required": true},
-      {"name": "business_scope", "label": "经营范围", "type": "textarea", "placeholder": "参考注册证书", "required": true}
+      {"name": "business_scope", "label": "经营范围", "type": "textarea", "placeholder": "参考注册证书", "required": true},
+      {"name": "file_company_registration", "label": "📄 企业注册证书+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "请上传PDF或图片格式"}
     ]
   },
   {
@@ -633,7 +634,9 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "legal_rep_id_number", "label": "证件号码", "type": "text", "required": true},
       {"name": "legal_rep_address", "label": "实际居住地址", "type": "text", "required": true},
       {"name": "legal_rep_email", "label": "电邮", "type": "email", "required": true},
-      {"name": "legal_rep_phone", "label": "电话", "type": "tel", "required": true}
+      {"name": "legal_rep_phone", "label": "电话", "type": "tel", "required": true},
+      {"name": "file_legal_rep_id", "label": "📄 法定代表人身份证件（正反面）", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "请上传正反面照片或扫描件"},
+      {"name": "file_legal_rep_address_proof", "label": "📄 法定代表人住址证明", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "如水电费账单、银行对账单等"}
     ]
   },
   {
@@ -645,7 +648,10 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "actual_controller_id_number", "label": "证件号码", "type": "text", "required": true},
       {"name": "actual_controller_address", "label": "实际居住地址", "type": "text", "required": true},
       {"name": "actual_controller_email", "label": "电邮", "type": "email", "required": true},
-      {"name": "actual_controller_phone", "label": "电话", "type": "tel", "required": true}
+      {"name": "actual_controller_phone", "label": "电话", "type": "tel", "required": true},
+      {"name": "file_actual_controller_id", "label": "📄 实际控制人身份证件（正反面）", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "请上传正反面照片或扫描件"},
+      {"name": "file_actual_controller_address_proof", "label": "📄 实际控制人住址证明", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true},
+      {"name": "file_actual_controller_proof", "label": "📄 实控人证明文件+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "如股权穿透证明等"}
     ]
   },
   {
@@ -657,7 +663,9 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "beneficial_owner_id_number", "label": "证件号码", "type": "text", "required": false},
       {"name": "beneficial_owner_address", "label": "实际居住地址", "type": "text", "required": false},
       {"name": "beneficial_owner_email", "label": "电邮", "type": "email", "required": false},
-      {"name": "beneficial_owner_phone", "label": "电话", "type": "tel", "required": false}
+      {"name": "beneficial_owner_phone", "label": "电话", "type": "tel", "required": false},
+      {"name": "file_beneficial_owner_id", "label": "📄 实益拥有人身份证件（正反面）", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": false, "note": "如有实益拥有人请上传"},
+      {"name": "file_beneficial_owner_address_proof", "label": "📄 实益拥有人住址证明", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": false}
     ]
   },
   {
@@ -669,7 +677,9 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "condition_2_note", "label": "说明（如选否）", "type": "textarea", "required": false},
       {"name": "condition_3", "label": "有可靠且运营情况良好的收入管控系统", "type": "radio", "options": ["是", "否"], "required": true},
       {"name": "condition_4", "label": "整体营收状况良好，能够达到营收能力要求", "type": "radio", "options": ["是", "否"], "required": true},
-      {"name": "condition_5", "label": "不存在重大法律合规风险", "type": "radio", "options": ["是", "否"], "required": true}
+      {"name": "condition_5", "label": "不存在重大法律合规风险", "type": "radio", "options": ["是", "否"], "required": true},
+      {"name": "file_condition_1_proof", "label": "📄 存续时间证明文件", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "如企业注册证书等"},
+      {"name": "file_condition_2_proof", "label": "📄 营业额证明文件+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "如财务报表、平台证明等"}
     ]
   },
   {
@@ -678,7 +688,8 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "revenue_2026", "label": "2026 营业总收入/门店数", "type": "text", "placeholder": "如：1000万/3家", "required": true},
       {"name": "revenue_2027", "label": "2027 营业总收入/门店数", "type": "text", "placeholder": "如：1200万/5家", "required": true},
       {"name": "revenue_2028", "label": "2028 营业总收入/门店数", "type": "text", "placeholder": "如：1500万/8家", "required": true},
-      {"name": "revenue_2029", "label": "2029 营业总收入/门店数", "type": "text", "placeholder": "如：2000万/10家", "required": true}
+      {"name": "revenue_2029", "label": "2029 营业总收入/门店数", "type": "text", "placeholder": "如：2000万/10家", "required": true},
+      {"name": "file_revenue_forecast", "label": "📄 未来12个月预估营业额信息+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "请提供书面预估文件"}
     ]
   },
   {
@@ -690,7 +701,10 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "authorizer_id_number", "label": "证件号码", "type": "text", "required": true},
       {"name": "authorizer_address", "label": "实际居住地址", "type": "text", "required": true},
       {"name": "authorizer_email", "label": "电邮", "type": "email", "required": true},
-      {"name": "authorizer_phone", "label": "电话", "type": "tel", "required": true}
+      {"name": "authorizer_phone", "label": "电话", "type": "tel", "required": true},
+      {"name": "file_directors_list", "label": "📄 董事会成员及其他主要人员名册+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "可从企查查等获取"},
+      {"name": "file_board_resolution", "label": "📄 董事會書面決議授权+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "授权在MCEX融资，请使用模板并通过授权人电邮申请"},
+      {"name": "file_email_authorization", "label": "📄 电邮申请说明+公章+授权人/法人签名", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "说明透过电邮进行挂牌+RBO设立申请"}
     ]
   }
 ];
@@ -840,10 +854,51 @@ function renderFormField(field) {
         ${note ? `<p class="text-xs text-gray-500 mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>${note}</p>` : ''}
       `;
       break;
+      
+    case 'file':
+      const accept = field.accept || '.pdf,.jpg,.jpeg,.png';
+      fieldHTML = `
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-purple-400 transition">
+          <input 
+            type="file" 
+            id="${name}" 
+            name="${name}"
+            ${required ? 'required' : ''}
+            accept="${accept}"
+            class="hidden"
+            onchange="handleFileSelect(this, '${name}')"
+          >
+          <label for="${name}" class="cursor-pointer flex flex-col items-center">
+            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+            <span class="text-sm text-gray-600">点击选择文件或拖拽文件到此处</span>
+            <span class="text-xs text-gray-500 mt-1">支持格式：${accept.replace(/\./g, '').toUpperCase()}</span>
+          </label>
+          <div id="${name}_preview" class="mt-3 hidden">
+            <div class="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+              <div class="flex items-center gap-2">
+                <i class="fas fa-file text-green-600"></i>
+                <span id="${name}_filename" class="text-sm text-gray-700"></span>
+                <span id="${name}_filesize" class="text-xs text-gray-500"></span>
+              </div>
+              <button type="button" onclick="clearFile('${name}')" class="text-red-600 hover:text-red-700">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+          <div id="${name}_url_display" class="mt-2 hidden">
+            <a id="${name}_url_link" href="#" target="_blank" class="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <i class="fas fa-external-link-alt"></i>
+              <span>查看已上传文件</span>
+            </a>
+          </div>
+        </div>
+        ${note ? `<p class="text-xs text-gray-600 mt-1"><i class="fas fa-info-circle mr-1"></i>${note}</p>` : ''}
+      `;
+      break;
   }
   
   // 字段容器（某些字段占两列）
-  const colSpan = (type === 'textarea' || name.includes('_note')) ? 'md:col-span-2' : '';
+  const colSpan = (type === 'textarea' || type === 'file' || name.includes('_note')) ? 'md:col-span-2' : '';
   
   return `
     <div class="${colSpan}">
@@ -862,6 +917,98 @@ function renderFormField(field) {
 // 标记表单已修改
 window.markFormDirty = function() {
   LISTING_STATE.isDirty = true;
+};
+
+// ==========================================
+// 文件上传处理函数
+// ==========================================
+
+// 模拟文件上传到CDN
+async function uploadFileToCDN(file) {
+  // 模拟上传延迟
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  // 模拟CDN URL
+  const fakeUrl = `https://cdn.mcex-listing-docs.com/${Date.now()}-${file.name}`;
+  
+  return {
+    file_name: file.name,
+    file_url: fakeUrl,
+    file_size: file.size,
+    file_type: file.type,
+    uploaded_at: new Date().toISOString()
+  };
+}
+
+// 处理文件选择
+window.handleFileSelect = async function(input, fieldName) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  try {
+    // 显示上传中状态
+    const previewDiv = document.getElementById(`${fieldName}_preview`);
+    const filenameSpan = document.getElementById(`${fieldName}_filename`);
+    const filesizeSpan = document.getElementById(`${fieldName}_filesize`);
+    
+    if (previewDiv) {
+      previewDiv.classList.remove('hidden');
+      if (filenameSpan) {
+        filenameSpan.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>正在上传...';
+      }
+    }
+    
+    // 上传文件
+    const result = await uploadFileToCDN(file);
+    
+    // 存储上传结果（用于后续保存）
+    if (!window.UPLOADED_FILES) {
+      window.UPLOADED_FILES = {};
+    }
+    window.UPLOADED_FILES[fieldName] = result;
+    
+    // 更新显示
+    if (filenameSpan) {
+      filenameSpan.innerHTML = `<i class="fas fa-check-circle text-green-600 mr-1"></i>${result.file_name}`;
+    }
+    if (filesizeSpan) {
+      const sizeKB = (result.file_size / 1024).toFixed(2);
+      filesizeSpan.textContent = `(${sizeKB} KB)`;
+    }
+    
+    // 显示已上传文件链接
+    const urlDisplayDiv = document.getElementById(`${fieldName}_url_display`);
+    const urlLink = document.getElementById(`${fieldName}_url_link`);
+    if (urlDisplayDiv && urlLink) {
+      urlDisplayDiv.classList.remove('hidden');
+      urlLink.href = result.file_url;
+    }
+    
+    markFormDirty();
+    
+  } catch (error) {
+    console.error('文件上传失败:', error);
+    showAlert('文件上传失败: ' + error.message, 'error');
+    input.value = '';
+  }
+};
+
+// 清除已选择的文件
+window.clearFile = function(fieldName) {
+  const input = document.getElementById(fieldName);
+  const previewDiv = document.getElementById(`${fieldName}_preview`);
+  const urlDisplayDiv = document.getElementById(`${fieldName}_url_display`);
+  
+  if (input) input.value = '';
+  if (previewDiv) previewDiv.classList.add('hidden');
+  if (urlDisplayDiv) urlDisplayDiv.classList.add('hidden');
+  
+  // 清除上传结果
+  if (window.UPLOADED_FILES && window.UPLOADED_FILES[fieldName]) {
+    delete window.UPLOADED_FILES[fieldName];
+  }
+  
+  markFormDirty();
 };
 
 // 切换条件说明字段显示
@@ -988,7 +1135,17 @@ function collectFormData() {
   const data = {};
   
   for (let [key, value] of formData.entries()) {
-    data[key] = value;
+    // 只收集有值的字段
+    if (value && value !== '') {
+      data[key] = value;
+    }
+  }
+  
+  // 添加已上传的文件信息
+  if (window.UPLOADED_FILES) {
+    Object.keys(window.UPLOADED_FILES).forEach(fieldName => {
+      data[fieldName] = JSON.stringify(window.UPLOADED_FILES[fieldName]);
+    });
   }
   
   return data;
@@ -1014,8 +1171,52 @@ async function loadListingData(projectId) {
 
 // 填充表单数据
 function fillFormData(data) {
+  // 初始化已上传文件对象
+  if (!window.UPLOADED_FILES) {
+    window.UPLOADED_FILES = {};
+  }
+  
   Object.keys(data).forEach(key => {
     const element = document.getElementById(key);
+    
+    // 处理文件字段
+    if (key.startsWith('file_') && data[key]) {
+      try {
+        const fileInfo = typeof data[key] === 'string' ? JSON.parse(data[key]) : data[key];
+        if (fileInfo && fileInfo.file_url) {
+          // 恢复文件信息
+          window.UPLOADED_FILES[key] = fileInfo;
+          
+          // 显示已上传文件
+          const previewDiv = document.getElementById(`${key}_preview`);
+          const filenameSpan = document.getElementById(`${key}_filename`);
+          const filesizeSpan = document.getElementById(`${key}_filesize`);
+          const urlDisplayDiv = document.getElementById(`${key}_url_display`);
+          const urlLink = document.getElementById(`${key}_url_link`);
+          
+          if (previewDiv) {
+            previewDiv.classList.remove('hidden');
+            if (filenameSpan) {
+              filenameSpan.innerHTML = `<i class="fas fa-check-circle text-green-600 mr-1"></i>${fileInfo.file_name}`;
+            }
+            if (filesizeSpan && fileInfo.file_size) {
+              const sizeKB = (fileInfo.file_size / 1024).toFixed(2);
+              filesizeSpan.textContent = `(${sizeKB} KB)`;
+            }
+          }
+          
+          if (urlDisplayDiv && urlLink) {
+            urlDisplayDiv.classList.remove('hidden');
+            urlLink.href = fileInfo.file_url;
+          }
+        }
+      } catch (e) {
+        console.warn('解析文件信息失败:', key, e);
+      }
+      return;
+    }
+    
+    // 处理普通字段
     if (element) {
       if (element.type === 'radio') {
         const radio = document.querySelector(`input[name="${key}"][value="${data[key]}"]`);
