@@ -1323,9 +1323,313 @@ window.loadInvestmentPlanAndListingInfo = async function(projectId) {
 };
 
 // 查看完整挂牌信息
-window.viewFullListingInfo = function(projectId) {
-  // TODO: 打开一个新的模态框显示完整信息
-  showAlert('查看完整信息功能待实现', 'info');
+window.viewFullListingInfo = async function(projectId) {
+  try {
+    // 加载挂牌信息
+    const response = await axios.get(`/api/investment/projects/${projectId}/listing-info`, {
+      headers: { 'Authorization': `Bearer ${STATE.token}` }
+    });
+    
+    const listingData = response.data.data;
+    
+    if (!listingData) {
+      showAlert('未找到挂牌信息', 'warning');
+      return;
+    }
+    
+    // 创建详细信息模态框
+    const detailModal = document.createElement('div');
+    detailModal.id = 'listingDetailModal';
+    detailModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4';
+    detailModal.innerHTML = `
+      <div class="bg-white rounded-lg max-w-5xl w-full max-h-screen overflow-y-auto">
+        <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 flex justify-between items-center">
+          <h2 class="text-2xl font-bold">
+            <i class="fas fa-file-alt mr-2"></i>挂牌主体完整信息
+          </h2>
+          <button onclick="document.getElementById('listingDetailModal').remove()" class="text-white hover:text-gray-200">
+            <i class="fas fa-times text-2xl"></i>
+          </button>
+        </div>
+        
+        <div class="p-6 space-y-6">
+          <!-- 1. 挂牌主体工商信息 -->
+          <div class="border-l-4 border-blue-500 pl-6 bg-blue-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-building mr-2 text-blue-600"></i>
+              1. 挂牌主体工商信息
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">挂牌主体企业中文名称</div>
+                <div class="font-semibold text-gray-900">${listingData.company_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">注册编号</div>
+                <div class="font-semibold text-gray-900">${listingData.registration_number || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">注册地址</div>
+                <div class="font-semibold text-gray-900">${listingData.registered_address || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">企业成立日期</div>
+                <div class="font-semibold text-gray-900">${listingData.establishment_date || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">主题业态</div>
+                <div class="font-semibold text-gray-900">${listingData.business_format || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">主营业务简介</div>
+                <div class="text-gray-900">${listingData.business_intro || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">经营范围</div>
+                <div class="text-gray-900">${listingData.business_scope || '-'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 2. 法定代表人 -->
+          <div class="border-l-4 border-purple-500 pl-6 bg-purple-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-user-tie mr-2 text-purple-600"></i>
+              2. 法定代表人
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">中文姓名</div>
+                <div class="font-semibold text-gray-900">${listingData.legal_rep_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件类型</div>
+                <div class="font-semibold text-gray-900">${listingData.legal_rep_id_type || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件号码</div>
+                <div class="font-semibold text-gray-900">${listingData.legal_rep_id_number || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">电话</div>
+                <div class="font-semibold text-gray-900">${listingData.legal_rep_phone || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">实际居住地址</div>
+                <div class="font-semibold text-gray-900">${listingData.legal_rep_address || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">电邮</div>
+                <div class="font-semibold text-gray-900">${listingData.legal_rep_email || '-'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 3. 实控人 -->
+          <div class="border-l-4 border-green-500 pl-6 bg-green-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-user-shield mr-2 text-green-600"></i>
+              3. 实控人
+            </h3>
+            <p class="text-sm text-gray-600 mb-3">股权穿透后持股占比最大的自然人及其它实际控制人</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">中文姓名</div>
+                <div class="font-semibold text-gray-900">${listingData.actual_controller_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件类型</div>
+                <div class="font-semibold text-gray-900">${listingData.actual_controller_id_type || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件号码</div>
+                <div class="font-semibold text-gray-900">${listingData.actual_controller_id_number || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">电话</div>
+                <div class="font-semibold text-gray-900">${listingData.actual_controller_phone || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">实际居住地址</div>
+                <div class="font-semibold text-gray-900">${listingData.actual_controller_address || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">电邮</div>
+                <div class="font-semibold text-gray-900">${listingData.actual_controller_email || '-'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 4. 实益拥有人 -->
+          <div class="border-l-4 border-orange-500 pl-6 bg-orange-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-users mr-2 text-orange-600"></i>
+              4. 实益拥有人
+            </h3>
+            <p class="text-sm text-gray-600 mb-3">所有直接地或間接地擁有或控制25%或以上實益擁有權的自然人</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">中文姓名</div>
+                <div class="font-semibold text-gray-900">${listingData.beneficial_owner_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件类型</div>
+                <div class="font-semibold text-gray-900">${listingData.beneficial_owner_id_type || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件号码</div>
+                <div class="font-semibold text-gray-900">${listingData.beneficial_owner_id_number || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">电话</div>
+                <div class="font-semibold text-gray-900">${listingData.beneficial_owner_phone || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">实际居住地址</div>
+                <div class="font-semibold text-gray-900">${listingData.beneficial_owner_address || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">电邮</div>
+                <div class="font-semibold text-gray-900">${listingData.beneficial_owner_email || '-'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 5. 准入条件 -->
+          <div class="border-l-4 border-red-500 pl-6 bg-red-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-check-circle mr-2 text-red-600"></i>
+              5. 准入条件
+            </h3>
+            <div class="space-y-3">
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">存续时间不短于12个月</div>
+                <div class="font-semibold ${listingData.condition_1 === '是' ? 'text-green-600' : 'text-red-600'}">
+                  ${listingData.condition_1 || '-'}
+                </div>
+                ${listingData.condition_1_note ? `<div class="text-sm text-gray-700 mt-2 p-2 bg-yellow-50 rounded">说明：${listingData.condition_1_note}</div>` : ''}
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">最近连续365日合计营业额不低于500万人民币</div>
+                <div class="font-semibold ${listingData.condition_2 === '是' ? 'text-green-600' : 'text-red-600'}">
+                  ${listingData.condition_2 || '-'}
+                </div>
+                ${listingData.condition_2_note ? `<div class="text-sm text-gray-700 mt-2 p-2 bg-yellow-50 rounded">说明：${listingData.condition_2_note}</div>` : ''}
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">有可靠且运营情况良好的收入管控系统</div>
+                <div class="font-semibold ${listingData.condition_3 === '是' ? 'text-green-600' : 'text-red-600'}">
+                  ${listingData.condition_3 || '-'}
+                </div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">整体营收状况良好，能够达到营收能力要求</div>
+                <div class="font-semibold ${listingData.condition_4 === '是' ? 'text-green-600' : 'text-red-600'}">
+                  ${listingData.condition_4 || '-'}
+                </div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">不存在重大法律合规风险</div>
+                <div class="font-semibold ${listingData.condition_5 === '是' ? 'text-green-600' : 'text-red-600'}">
+                  ${listingData.condition_5 || '-'}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 6. 企业预计营收信息 -->
+          <div class="border-l-4 border-indigo-500 pl-6 bg-indigo-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-chart-line mr-2 text-indigo-600"></i>
+              6. 企业预计营收信息
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">2026 营业总收入/门店数</div>
+                <div class="font-semibold text-gray-900">${listingData.revenue_2026 || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">2027 营业总收入/门店数</div>
+                <div class="font-semibold text-gray-900">${listingData.revenue_2027 || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">2028 营业总收入/门店数</div>
+                <div class="font-semibold text-gray-900">${listingData.revenue_2028 || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">2029 营业总收入/门店数</div>
+                <div class="font-semibold text-gray-900">${listingData.revenue_2029 || '-'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 7. 授权人信息 -->
+          <div class="border-l-4 border-pink-500 pl-6 bg-pink-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-user-check mr-2 text-pink-600"></i>
+              7. 授权人信息
+            </h3>
+            <p class="text-sm text-gray-600 mb-3">可以是法人/其他授权人士</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">中文姓名</div>
+                <div class="font-semibold text-gray-900">${listingData.authorizer_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件类型</div>
+                <div class="font-semibold text-gray-900">${listingData.authorizer_id_type || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">证件号码</div>
+                <div class="font-semibold text-gray-900">${listingData.authorizer_id_number || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">电话</div>
+                <div class="font-semibold text-gray-900">${listingData.authorizer_phone || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">实际居住地址</div>
+                <div class="font-semibold text-gray-900">${listingData.authorizer_address || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">电邮</div>
+                <div class="font-semibold text-gray-900">${listingData.authorizer_email || '-'}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 提交信息 -->
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm text-gray-600">提交状态</div>
+                <div class="font-bold ${listingData.is_submitted === 1 ? 'text-green-600' : 'text-yellow-600'}">
+                  ${listingData.is_submitted === 1 ? '✅ 已提交' : '📝 草稿'}
+                </div>
+              </div>
+              ${listingData.submitted_at ? `
+                <div>
+                  <div class="text-sm text-gray-600">提交时间</div>
+                  <div class="font-semibold text-gray-900">${new Date(listingData.submitted_at).toLocaleString('zh-CN')}</div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+        
+        <div class="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end">
+          <button onclick="document.getElementById('listingDetailModal').remove()" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+            <i class="fas fa-times mr-2"></i>关闭
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(detailModal);
+  } catch (error) {
+    console.error('加载完整信息失败:', error);
+    showAlert('加载失败: ' + error.message, 'error');
+  }
 };
 
 // 处理挂牌信息审核
