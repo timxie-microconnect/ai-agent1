@@ -1330,7 +1330,8 @@ window.loadInvestmentPlanAndListingInfo = async function(projectId) {
 window.viewFullListingInfo = async function(projectId) {
   // 辅助函数：渲染文件链接
   const renderFileLink = (fileData, label) => {
-    if (!fileData) return '';
+    // 过滤空值和字符串"null"
+    if (!fileData || fileData === 'null' || fileData === 'undefined') return '';
     
     try {
       const fileInfo = typeof fileData === 'string' ? JSON.parse(fileData) : fileData;

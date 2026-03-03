@@ -409,7 +409,7 @@ app.post('/projects/:id/listing-info', async (c) => {
     const isSubmitted = body.is_submitted === true || body.is_submitted === 'true'
     const now = new Date().toISOString()
     
-    // 字段列表（业务字段）
+    // 字段列表（业务字段 + 文件字段）
     const fields = [
       'company_name', 'registration_number', 'registered_address', 'establishment_date',
       'business_format', 'business_intro', 'business_scope',
@@ -423,7 +423,15 @@ app.post('/projects/:id/listing-info', async (c) => {
       'condition_3', 'condition_4', 'condition_5',
       'revenue_2026', 'revenue_2027', 'revenue_2028', 'revenue_2029',
       'authorizer_name', 'authorizer_id_type', 'authorizer_id_number',
-      'authorizer_address', 'authorizer_email', 'authorizer_phone'
+      'authorizer_address', 'authorizer_email', 'authorizer_phone',
+      // 文件字段（14个）- 与数据库字段名称一致
+      'file_company_registration',
+      'file_legal_rep_id', 'file_legal_rep_address_proof',
+      'file_actual_controller_id', 'file_actual_controller_address_proof', 'file_actual_controller_proof',
+      'file_beneficial_owner_id', 'file_beneficial_owner_address_proof',
+      'file_condition_1_proof', 'file_condition_2_proof',
+      'file_revenue_forecast',
+      'file_directors_list', 'file_board_resolution', 'file_email_authorization'
     ]
     
     if (existing) {
@@ -621,7 +629,9 @@ app.get('/projects/:id/listing-info/export', async (c) => {
     
     // 辅助函数：解析文件URL
     function parseFileUrl(fileData: any): string {
-      if (!fileData) return '-'
+      // 过滤空值和字符串"null"
+      if (!fileData || fileData === 'null' || fileData === 'undefined') return '-'
+      
       try {
         const fileInfo = typeof fileData === 'string' ? JSON.parse(fileData) : fileData
         return fileInfo?.file_url || '-'
@@ -671,7 +681,9 @@ app.get('/projects/:id/listing-files', async (c) => {
     
     // 辅助函数：解析文件信息
     const parseFileInfo = (fileData: any, fileName: string) => {
-      if (!fileData) return null
+      // 过滤空值和字符串"null"
+      if (!fileData || fileData === 'null' || fileData === 'undefined') return null
+      
       try {
         const fileInfo = typeof fileData === 'string' ? JSON.parse(fileData) : fileData
         if (fileInfo && fileInfo.file_url) {
