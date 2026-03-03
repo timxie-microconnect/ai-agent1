@@ -498,7 +498,7 @@ app.get('/projects/:id/listing-info/export', async (c) => {
     const project = await db.prepare(`
       SELECT 
         submission_code, status, created_at,
-        investment_amount, profit_share_ratio, repayment_frequency,
+        investment_amount, profit_share_ratio, payment_frequency,
         daily_repayment, estimated_days, annual_rate, total_return_amount
       FROM projects WHERE id = ?
     `).bind(projectId).first()
@@ -517,6 +517,17 @@ app.get('/projects/:id/listing-info/export', async (c) => {
     }
     
     // 构建Excel数据
+    // 辅助函数：格式化回款频率
+    const formatFrequency = (freq: string | null): string => {
+      if (!freq) return '-'
+      const freqMap: Record<string, string> = {
+        'daily': '每日',
+        'weekly': '每周',
+        'biweekly': '每两周'
+      }
+      return freqMap[freq] || freq
+    }
+    
     const excelData: any = {
       '项目编号': project.submission_code,
       '项目状态': project.status,
@@ -525,10 +536,10 @@ app.get('/projects/:id/listing-info/export', async (c) => {
       // 投资方案信息
       '联营资金总额（元）': project.investment_amount || '-',
       '分成比例': project.profit_share_ratio ? `${(project.profit_share_ratio * 100).toFixed(2)}%` : '-',
-      '回款频率': project.repayment_frequency || '-',
+      '回款频率': formatFrequency(project.payment_frequency),
       '每日回款金额（元）': project.daily_repayment || '-',
       '预计联营天数': project.estimated_days || '-',
-      '年化利率': project.annual_rate ? `${(project.annual_rate * 100).toFixed(2)}%` : '-',
+      '年化收益率': project.annual_rate ? `${(project.annual_rate * 100).toFixed(2)}%` : '-',
       '总支付金额（元）': project.total_return_amount || '-',
       
       // 1. 挂牌主体工商信息

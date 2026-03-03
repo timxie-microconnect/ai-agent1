@@ -1201,6 +1201,10 @@ window.loadInvestmentPlanAndListingInfo = async function(projectId) {
                   <span class="font-bold">${planData.estimatedDays || 0}天</span>
                 </div>
                 <div>
+                  <span class="text-gray-600">年化收益率：</span>
+                  <span class="font-bold text-lg text-orange-600">${planData.annualRate ? (planData.annualRate * 100).toFixed(2) + '%' : '-'}</span>
+                </div>
+                <div>
                   <span class="text-gray-600">总支付金额：</span>
                   <span class="font-bold text-lg text-green-600">¥${(planData.totalReturnAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
@@ -1734,17 +1738,19 @@ window.exportListingToExcel = async function(projectId) {
       });
     }
     
-    // 转换数据为二维数组格式
+    // 转换数据为二维数组格式（竖向布局：一列字段名，一列值）
     const headers = Object.keys(excelData);
     const values = Object.values(excelData);
-    const wsData = [headers, values];
+    const wsData = headers.map((header, index) => [header, values[index]]);
     
     // 创建工作表
     const ws = window.XLSX.utils.aoa_to_sheet(wsData);
     
-    // 设置列宽
-    const colWidths = headers.map(h => ({ wch: Math.max(h.length + 5, 15) }));
-    ws['!cols'] = colWidths;
+    // 设置列宽（第一列字段名，第二列值）
+    ws['!cols'] = [
+      { wch: 30 },  // 字段名列宽
+      { wch: 50 }   // 值列宽
+    ];
     
     // 创建工作簿
     const wb = window.XLSX.utils.book_new();
