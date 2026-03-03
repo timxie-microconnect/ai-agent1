@@ -1163,6 +1163,18 @@ function validateRequiredFields() {
         if (!window.UPLOADED_FILES || !window.UPLOADED_FILES[fieldName]) {
           missingFields.push(`${fieldName}：${fieldLabel}`);
         }
+      } else if (field.type === 'radio') {
+        // Radio 字段检查是否有选中的选项
+        const radioElement = document.querySelector(`input[name="${fieldName}"]:checked`);
+        if (!radioElement) {
+          missingFields.push(`${fieldName}：${fieldLabel}`);
+        }
+      } else if (field.type === 'select') {
+        // Select 字段检查是否选择了非空值
+        const selectElement = document.getElementById(fieldName);
+        if (selectElement && (!selectElement.value || selectElement.value === '')) {
+          missingFields.push(`${fieldName}：${fieldLabel}`);
+        }
       } else {
         // 普通字段检查表单值
         const element = document.getElementById(fieldName);
