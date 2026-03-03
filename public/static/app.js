@@ -1813,7 +1813,8 @@ window.downloadAllFiles = async function(projectId) {
         const a = document.createElement('a');
         a.href = file.url;
         a.download = `${projectCode}_${file.name}_${file.originalName}`;
-        a.target = '_blank';
+        // 移除 target='_blank'，避免打开新页面导致404
+        a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
