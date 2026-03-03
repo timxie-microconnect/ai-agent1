@@ -1093,11 +1093,24 @@ window.saveListingDraft = async function() {
 
 // 提交挂牌信息
 window.submitListingInfo = async function() {
-  // 验证表单（只在提交时验证）
-  const form = document.getElementById('listingForm');
-  if (!form.checkValidity()) {
-    showAlert('请填写所有必填项（标记*的字段）', 'error');
-    form.reportValidity();
+  // 手动验证必填项（包括文件字段）
+  const missingFields = validateRequiredFields();
+  if (missingFields.length > 0) {
+    const fieldList = missingFields.map(f => `• ${f}`).join('\n');
+    showAlert(`请填写以下必填项：\n\n${fieldList}`, 'error');
+    // 滚动到第一个缺失字段
+    const firstField = document.getElementById(missingFields[0].split('：')[0]);
+    if (firstField) {
+      firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // 如果是文件字段，高亮显示
+      const fieldContainer = firstField.closest('.mb-4');
+      if (fieldContainer) {
+        fieldContainer.classList.add('ring-2', 'ring-red-500', 'rounded');
+        setTimeout(() => {
+          fieldContainer.classList.remove('ring-2', 'ring-red-500', 'rounded');
+        }, 3000);
+      }
+    }
     return;
   }
   
@@ -1131,6 +1144,40 @@ window.submitListingInfo = async function() {
     showAlert('提交失败: ' + (error.response?.data?.error || error.message), 'error');
   }
 };
+
+// 验证所有必填字段
+function validateRequiredFields() {
+  const missingFields = [];
+  
+  // 遍历表单结构，检查必填字段
+  LISTING_FORM_STRUCTURE.forEach(section => {
+    section.fields.forEach(field => {
+      if (!field.required) return; // 跳过非必填项
+      
+      const fieldName = field.name;
+      const fieldLabel = field.label;
+      
+      // 检查文件字段
+      if (field.type === 'file') {
+        // 文件字段检查 window.UPLOADED_FILES
+        if (!window.UPLOADED_FILES || !window.UPLOADED_FILES[fieldName]) {
+          missingFields.push(`${fieldName}：${fieldLabel}`);
+        }
+      } else {
+        // 普通字段检查表单值
+        const element = document.getElementById(fieldName);
+        if (element) {
+          const value = element.value?.trim();
+          if (!value || value === '') {
+            missingFields.push(`${fieldName}：${fieldLabel}`);
+          }
+        }
+      }
+    });
+  });
+  
+  return missingFields;
+}
 
 // 收集表单数据
 function collectFormData() {
