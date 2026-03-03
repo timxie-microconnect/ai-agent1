@@ -255,12 +255,13 @@ function renderMainContent() {
           <div class="mt-2 space-y-1">
             <p class="text-sm text-gray-600">
               <i class="fas fa-arrow-down mr-1 text-orange-500"></i>
-              <strong>最低联营金额：¥5,000</strong>
+              <strong>最低联营金额：¥<span id="minInvestmentDisplay">--</span></strong>
+              <span class="text-xs text-gray-500 ml-1">(单批14天)</span>
             </p>
             <p class="text-sm text-gray-600">
               <i class="fas fa-arrow-up mr-1 text-green-500"></i>
               <strong>最高联营金额：¥<span id="maxInvestmentDisplay">--</span></strong>
-              <span class="text-xs text-gray-500 ml-1">(平均每日净成交 × 分成比例 × 60天)</span>
+              <span class="text-xs text-gray-500 ml-1">(八周56天)</span>
             </p>
             <p id="investmentAmountError" class="text-sm text-red-600" style="display:none">
               <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -294,11 +295,34 @@ function renderMainContent() {
         </div>
       </div>
       
-      <!-- 计算结果展示 -->
+      <!-- 预期开始联营时间 -->
+      <div class="mt-6">
+        <label class="block font-semibold mb-2 text-gray-700">
+          <i class="fas fa-calendar-day mr-2 text-indigo-600"></i>
+          预期开始联营时间
+        </label>
+        <div class="flex gap-4">
+          <input 
+            type="date" 
+            id="startDate"
+            name="startDate" 
+            onchange="calculateInvestmentPlan()"
+            class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-lg"
+          >
+          <button type="button" onclick="setStartDateTomorrow()" class="px-6 py-3 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-semibold">
+            明天
+          </button>
+          <button type="button" onclick="setStartDateDayAfterTomorrow()" class="px-6 py-3 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 font-semibold">
+            后天
+          </button>
+        </div>
+      </div>
+      
+      <!-- 单批计算结果展示 -->
       <div id="calculationResult" class="bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 border-2 border-purple-300 rounded-xl p-8 mt-8" style="display:none">
         <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">
           <i class="fas fa-chart-pie mr-2 text-purple-600"></i>
-          投资方案评估结果（YITO封顶）
+          投资方案评估结果（单批14天内）
         </h3>
         
         <!-- 关键指标卡片 -->
@@ -354,6 +378,53 @@ function renderMainContent() {
           <p class="text-sm text-yellow-800 flex items-start">
             <i class="fas fa-shield-alt text-yellow-600 mr-2 mt-1"></i>
             <span><strong>YITO封顶保护：</strong>即使实际联营天数延长，总支付金额不会超过上述计算值。这是对融资方的保护机制。</span>
+          </p>
+        </div>
+      </div>
+      
+      <!-- 分批出资结果展示 -->
+      <div id="batchingResult" class="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 border-2 border-indigo-300 rounded-xl p-8 mt-8" style="display:none">
+        <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+          <i class="fas fa-layer-group mr-2 text-indigo-600"></i>
+          分批出资方案（每批14天）
+        </h3>
+        
+        <!-- 批次概览 -->
+        <div class="bg-white rounded-xl p-6 mb-6 border-2 border-indigo-200">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="text-center">
+              <div class="text-sm text-gray-600 mb-2">总批次数</div>
+              <div id="batchCount" class="text-4xl font-bold text-indigo-600">-</div>
+              <div class="text-xs text-gray-500 mt-1">批</div>
+            </div>
+            <div class="text-center">
+              <div class="text-sm text-gray-600 mb-2">每批金额（前N-1批）</div>
+              <div id="batchAmount" class="text-3xl font-bold text-purple-600">-</div>
+              <div class="text-xs text-gray-500 mt-1">每批14天</div>
+            </div>
+            <div class="text-center">
+              <div class="text-sm text-gray-600 mb-2">最后一批金额</div>
+              <div id="lastBatchAmount" class="text-3xl font-bold text-pink-600">-</div>
+              <div class="text-xs text-gray-500 mt-1">可能不同</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 分批时间线 -->
+        <div class="bg-white rounded-xl p-6 border-2 border-gray-200">
+          <h4 class="font-bold text-gray-800 mb-4 text-lg flex items-center">
+            <i class="fas fa-timeline mr-2 text-indigo-600"></i>
+            出资与回款时间线
+          </h4>
+          <div id="timelineContainer" class="space-y-4">
+            <!-- 动态生成的时间线内容 -->
+          </div>
+        </div>
+        
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg mt-6">
+          <p class="text-sm text-blue-800 flex items-start">
+            <i class="fas fa-info-circle text-blue-600 mr-2 mt-1"></i>
+            <span><strong>分批出资说明：</strong>由于联营总额需要超过14天才能回款完成，系统自动将其分为多批，每批联营期限14天。每批到达YITO封顶后，下一批自动开始。</span>
           </p>
         </div>
       </div>
@@ -727,6 +798,24 @@ function formatDate(date) {
   const weekday = weekdays[date.getDay()];
   return `${year}-${month}-${day} (${weekday})`;
 }
+
+// 设置开始日期为明天
+window.setStartDateTomorrow = function() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dateStr = tomorrow.toISOString().split('T')[0];
+  document.getElementById('startDate').value = dateStr;
+  calculateInvestmentPlan();
+};
+
+// 设置开始日期为后天
+window.setStartDateDayAfterTomorrow = function() {
+  const dayAfter = new Date();
+  dayAfter.setDate(dayAfter.getDate() + 2);
+  const dateStr = dayAfter.toISOString().split('T')[0];
+  document.getElementById('startDate').value = dateStr;
+  calculateInvestmentPlan();
+};
 
 // 保存投资方案
 window.handleSaveInvestmentPlan = async function(event) {
