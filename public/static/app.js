@@ -1496,7 +1496,7 @@ window.viewFullListingInfo = async function(projectId) {
               <i class="fas fa-users mr-2 text-orange-600"></i>
               4. 实益拥有人
             </h3>
-            <p class="text-sm text-gray-600 mb-3">所有直接地或間接地擁有或控制25%或以上實益擁有權的自然人</p>
+            <p class="text-sm text-gray-600 mb-3">所有直接或间接拥有或控制25%或以上实益拥有权的自然人</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="bg-white p-3 rounded">
                 <div class="text-sm text-gray-600">中文姓名</div>
@@ -1633,7 +1633,7 @@ window.viewFullListingInfo = async function(projectId) {
                 <div class="font-semibold text-gray-900">${listingData.authorizer_email || '-'}</div>
               </div>
               ${renderFileLink(listingData.file_directors_list, '📄 董事会成员及其他主要人员名册+公章')}
-              ${renderFileLink(listingData.file_board_resolution, '📄 董事會書面決議授权+公章')}
+              ${renderFileLink(listingData.file_board_resolution, '📄 董事会书面决议授权+公章')}
               ${renderFileLink(listingData.file_email_authorization, '📄 电邮申请说明+公章+授权人/法人签名')}
             </div>
           </div>

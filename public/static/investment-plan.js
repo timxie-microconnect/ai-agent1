@@ -656,7 +656,7 @@ const LISTING_FORM_STRUCTURE = [
   },
   {
     "section": "实益拥有人",
-    "description": "所有直接地或間接地擁有或控制25%或以上實益擁有權的自然人",
+    "description": "所有直接或间接拥有或控制25%或以上实益拥有权的自然人",
     "fields": [
       {"name": "beneficial_owner_name", "label": "中文姓名", "type": "text", "required": false},
       {"name": "beneficial_owner_id_type", "label": "证件类型", "type": "select", "options": ["身份证", "护照", "其他"], "required": false},
@@ -703,7 +703,7 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "authorizer_email", "label": "电邮", "type": "email", "required": true},
       {"name": "authorizer_phone", "label": "电话", "type": "tel", "required": true},
       {"name": "file_directors_list", "label": "📄 董事会成员及其他主要人员名册+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "可从企查查等获取"},
-      {"name": "file_board_resolution", "label": "📄 董事會書面決議授权+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "授权在MCEX融资，请使用模板并通过授权人电邮申请"},
+      {"name": "file_board_resolution", "label": "📄 董事会书面决议授权+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "授权在MCEX融资，请使用模板并通过授权人电邮申请"},
       {"name": "file_email_authorization", "label": "📄 电邮申请说明+公章+授权人/法人签名", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "说明透过电邮进行挂牌+RBO设立申请"}
     ]
   }
