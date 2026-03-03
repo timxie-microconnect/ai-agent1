@@ -1324,6 +1324,30 @@ window.loadInvestmentPlanAndListingInfo = async function(projectId) {
 
 // 查看完整挂牌信息
 window.viewFullListingInfo = async function(projectId) {
+  // 辅助函数：渲染文件链接
+  const renderFileLink = (fileData, label) => {
+    if (!fileData) return '';
+    
+    try {
+      const fileInfo = typeof fileData === 'string' ? JSON.parse(fileData) : fileData;
+      if (fileInfo && fileInfo.file_url) {
+        return `
+          <div class="bg-white p-3 rounded col-span-2">
+            <div class="text-sm text-gray-600 mb-1">${label}</div>
+            <a href="${fileInfo.file_url}" target="_blank" class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold">
+              <i class="fas fa-file-download"></i>
+              <span>${fileInfo.file_name || '查看文件'}</span>
+              <span class="text-xs text-gray-500">(${(fileInfo.file_size / 1024).toFixed(2)} KB)</span>
+            </a>
+          </div>
+        `;
+      }
+    } catch (e) {
+      console.warn('解析文件信息失败:', label, e);
+    }
+    return '';
+  };
+  
   try {
     // 加载挂牌信息
     const response = await axios.get(`/api/investment/projects/${projectId}/listing-info`, {
@@ -1388,6 +1412,7 @@ window.viewFullListingInfo = async function(projectId) {
                 <div class="text-sm text-gray-600">经营范围</div>
                 <div class="text-gray-900">${listingData.business_scope || '-'}</div>
               </div>
+              ${renderFileLink(listingData.file_company_registration, '📄 企业注册证书+公章')}
             </div>
           </div>
           
@@ -1422,6 +1447,8 @@ window.viewFullListingInfo = async function(projectId) {
                 <div class="text-sm text-gray-600">电邮</div>
                 <div class="font-semibold text-gray-900">${listingData.legal_rep_email || '-'}</div>
               </div>
+              ${renderFileLink(listingData.file_legal_rep_id, '📄 法定代表人身份证件（正反面）')}
+              ${renderFileLink(listingData.file_legal_rep_address_proof, '📄 法定代表人住址证明')}
             </div>
           </div>
           
@@ -1457,6 +1484,9 @@ window.viewFullListingInfo = async function(projectId) {
                 <div class="text-sm text-gray-600">电邮</div>
                 <div class="font-semibold text-gray-900">${listingData.actual_controller_email || '-'}</div>
               </div>
+              ${renderFileLink(listingData.file_actual_controller_id, '📄 实际控制人身份证件（正反面）')}
+              ${renderFileLink(listingData.file_actual_controller_address_proof, '📄 实际控制人住址证明')}
+              ${renderFileLink(listingData.file_actual_controller_proof, '📄 实控人证明文件+公章')}
             </div>
           </div>
           
@@ -1492,6 +1522,8 @@ window.viewFullListingInfo = async function(projectId) {
                 <div class="text-sm text-gray-600">电邮</div>
                 <div class="font-semibold text-gray-900">${listingData.beneficial_owner_email || '-'}</div>
               </div>
+              ${renderFileLink(listingData.file_beneficial_owner_id, '📄 实益拥有人身份证件（正反面）')}
+              ${renderFileLink(listingData.file_beneficial_owner_address_proof, '📄 实益拥有人住址证明')}
             </div>
           </div>
           
@@ -1535,6 +1567,10 @@ window.viewFullListingInfo = async function(projectId) {
                 </div>
               </div>
             </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              ${renderFileLink(listingData.file_condition_1_proof, '📄 存续时间证明文件')}
+              ${renderFileLink(listingData.file_condition_2_proof, '📄 营业额证明文件+公章')}
+            </div>
           </div>
           
           <!-- 6. 企业预计营收信息 -->
@@ -1560,6 +1596,7 @@ window.viewFullListingInfo = async function(projectId) {
                 <div class="text-sm text-gray-600">2029 营业总收入/门店数</div>
                 <div class="font-semibold text-gray-900">${listingData.revenue_2029 || '-'}</div>
               </div>
+              ${renderFileLink(listingData.file_revenue_forecast, '📄 未来12个月预估营业额信息+公章')}
             </div>
           </div>
           
@@ -1595,6 +1632,9 @@ window.viewFullListingInfo = async function(projectId) {
                 <div class="text-sm text-gray-600">电邮</div>
                 <div class="font-semibold text-gray-900">${listingData.authorizer_email || '-'}</div>
               </div>
+              ${renderFileLink(listingData.file_directors_list, '📄 董事会成员及其他主要人员名册+公章')}
+              ${renderFileLink(listingData.file_board_resolution, '📄 董事會書面決議授权+公章')}
+              ${renderFileLink(listingData.file_email_authorization, '📄 电邮申请说明+公章+授权人/法人签名')}
             </div>
           </div>
           
