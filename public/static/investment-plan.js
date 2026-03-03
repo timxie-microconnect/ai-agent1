@@ -1066,8 +1066,9 @@ window.saveListingDraft = async function() {
       );
     }
     
-    // 2. 保存挂牌信息
+    // 2. 保存挂牌信息（草稿模式，不验证必填项）
     const formData = collectFormData();
+    formData.is_submitted = false; // 明确标记为草稿
     const response = await axios.post(
       `/api/investment/projects/${INVESTMENT_STATE.projectId}/listing-info`, 
       formData,
@@ -1092,9 +1093,10 @@ window.saveListingDraft = async function() {
 
 // 提交挂牌信息
 window.submitListingInfo = async function() {
-  // 验证表单
+  // 验证表单（只在提交时验证）
   const form = document.getElementById('listingForm');
   if (!form.checkValidity()) {
+    showAlert('请填写所有必填项（标记*的字段）', 'error');
     form.reportValidity();
     return;
   }
@@ -1105,7 +1107,7 @@ window.submitListingInfo = async function() {
   
   try {
     const formData = collectFormData();
-    formData.is_submitted = true;
+    formData.is_submitted = true; // 标记为正式提交
     
     const response = await axios.post(
       `/api/investment/projects/${INVESTMENT_STATE.projectId}/listing-info`, 
@@ -1114,17 +1116,19 @@ window.submitListingInfo = async function() {
     );
     
     if (response.data.success) {
-      showAlert('挂牌信息提交成功！', 'success');
+      showAlert('挂牌信息提交成功！正在进入审核流程...', 'success');
       LISTING_STATE.isDirty = false;
       
-      // 刷新页面
-      await renderInvestmentPlanPage(INVESTMENT_STATE.projectId);
+      // 延迟刷新，让用户看到成功消息
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } else {
       throw new Error(response.data.error);
     }
   } catch (error) {
     console.error('提交失败:', error);
-    showAlert('提交失败: ' + error.message, 'error');
+    showAlert('提交失败: ' + (error.response?.data?.error || error.message), 'error');
   }
 };
 
