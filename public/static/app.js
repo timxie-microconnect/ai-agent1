@@ -1023,17 +1023,19 @@ window.openAdminProjectModal = async function(id) {
                 </button>
               </div>
             ` : project.status === 'approved' ? `
-              <div class="bg-green-50 p-4 rounded mb-4">
-                <p class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-2"></i>项目已通过审批</p>
+              <div class="bg-blue-50 p-4 rounded mb-4">
+                <p class="text-blue-700 font-semibold">
+                  <i class="fas fa-info-circle mr-2"></i>
+                  项目已通过审批，等待融资方提交投资方案和挂牌信息
+                </p>
               </div>
-              <div class="flex gap-4">
-                <button onclick="navigateToInvestmentPlan(${id})" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg font-bold">
-                  <i class="fas fa-chart-line mr-2"></i>设计投资方案
-                </button>
-                <button onclick="handleUploadContract(${id})" class="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  <i class="fas fa-upload mr-2"></i>上传协议
-                </button>
+              <div id="listingInfoSection" class="mt-4">
+                <!-- 这里将自动加载投资方案和挂牌信息审核界面 -->
               </div>
+              <script>
+                // 自动加载投资方案和挂牌信息
+                loadInvestmentPlanAndListingInfo(${id});
+              </script>
             ` : project.status === 'contract_uploaded' ? `
               <div class="bg-yellow-50 p-4 rounded mb-4">
                 <p class="text-yellow-700 font-semibold"><i class="fas fa-file-contract mr-2"></i>协议已上传</p>
@@ -1114,6 +1116,235 @@ window.handleApprove = async function(id, action) {
     try {
       const result = await API.approveProject(id, action, '审批通过');
       showAlert('审批通过成功！', 'success');
+      document.getElementById('adminModal').remove();
+      refreshAdminProjects();
+    } catch (error) {
+      showAlert(error.message, 'error');
+    }
+  }
+};
+
+// 加载投资方案和挂牌信息（管理员审核用）
+window.loadInvestmentPlanAndListingInfo = async function(projectId) {
+  try {
+    // 1. 加载投资方案
+    const planResponse = await axios.get(`/api/investment/projects/${projectId}/investment-plan`, {
+      headers: { 'Authorization': `Bearer ${STATE.token}` }
+    });
+    
+    // 2. 加载挂牌信息
+    const listingResponse = await axios.get(`/api/investment/projects/${projectId}/listing-info`, {
+      headers: { 'Authorization': `Bearer ${STATE.token}` }
+    });
+    
+    const section = document.getElementById('listingInfoSection');
+    if (!section) return;
+    
+    const planData = planResponse.data.data;
+    const listingData = listingResponse.data.data;
+    
+    // 如果两者都没有数据，显示等待提示
+    if (!planData && !listingData) {
+      section.innerHTML = `
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p class="text-yellow-800">
+            <i class="fas fa-clock mr-2"></i>
+            等待融资方提交投资方案和挂牌信息...
+          </p>
+        </div>
+      `;
+      return;
+    }
+    
+    // 如果已提交，显示审核界面
+    if (listingData && listingData.is_submitted) {
+      section.innerHTML = `
+        <div class="border-2 border-green-500 rounded-lg p-6 bg-green-50">
+          <h3 class="text-2xl font-bold text-green-800 mb-4">
+            <i class="fas fa-clipboard-check mr-2"></i>
+            投资方案和挂牌信息审核
+          </h3>
+          <p class="text-green-700 mb-4">
+            <i class="fas fa-check-circle mr-2"></i>
+            融资方已提交投资方案和挂牌信息，请审核
+          </p>
+          
+          <!-- 投资方案 -->
+          ${planData ? `
+            <div class="bg-white rounded-lg p-4 mb-4">
+              <h4 class="font-bold text-lg mb-3 text-purple-800">
+                <i class="fas fa-chart-line mr-2"></i>投资方案
+              </h4>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <span class="text-gray-600">联营资金总额：</span>
+                  <span class="font-bold text-lg text-blue-600">¥${(planData.investmentAmount || 0).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">分成比例：</span>
+                  <span class="font-bold text-lg text-purple-600">${((planData.profitShareRatio || 0) * 100).toFixed(2)}%</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">回款频率：</span>
+                  <span class="font-bold">${planData.paymentFrequency === 'daily' ? '每日' : planData.paymentFrequency === 'weekly' ? '每周' : '每两周'}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">每日回款金额：</span>
+                  <span class="font-bold">¥${(planData.dailyRepayment || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">预计联营天数：</span>
+                  <span class="font-bold">${planData.estimatedDays || 0}天</span>
+                </div>
+                <div>
+                  <span class="text-gray-600">总支付金额：</span>
+                  <span class="font-bold text-lg text-green-600">¥${(planData.totalReturnAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                </div>
+              </div>
+            </div>
+          ` : '<div class="bg-yellow-50 p-3 rounded text-yellow-800 text-sm">未设置投资方案</div>'}
+          
+          <!-- 挂牌信息 -->
+          ${listingData ? `
+            <div class="bg-white rounded-lg p-4 mb-4">
+              <h4 class="font-bold text-lg mb-3 text-blue-800">
+                <i class="fas fa-building mr-2"></i>挂牌主体信息
+              </h4>
+              <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <span class="text-gray-600">企业中文名称：</span>
+                    <span class="font-semibold">${listingData.company_name || '-'}</span>
+                  </div>
+                  <div>
+                    <span class="text-gray-600">注册编号：</span>
+                    <span class="font-semibold">${listingData.registration_number || '-'}</span>
+                  </div>
+                  <div>
+                    <span class="text-gray-600">注册地址：</span>
+                    <span class="font-semibold">${listingData.registered_address || '-'}</span>
+                  </div>
+                  <div>
+                    <span class="text-gray-600">成立日期：</span>
+                    <span class="font-semibold">${listingData.establishment_date || '-'}</span>
+                  </div>
+                  <div class="col-span-2">
+                    <span class="text-gray-600">经营业态：</span>
+                    <span class="font-semibold">${listingData.business_format || '-'}</span>
+                  </div>
+                  <div class="col-span-2">
+                    <span class="text-gray-600">经营简介：</span>
+                    <span>${listingData.business_intro || '-'}</span>
+                  </div>
+                </div>
+                
+                <div class="border-t pt-3">
+                  <h5 class="font-bold text-gray-700 mb-2">法定代表人信息</h5>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div><span class="text-gray-600">姓名：</span>${listingData.legal_rep_name || '-'}</div>
+                    <div><span class="text-gray-600">证件类型：</span>${listingData.legal_rep_id_type || '-'}</div>
+                    <div><span class="text-gray-600">证件号码：</span>${listingData.legal_rep_id_number || '-'}</div>
+                    <div><span class="text-gray-600">电话：</span>${listingData.legal_rep_phone || '-'}</div>
+                  </div>
+                </div>
+                
+                <div class="border-t pt-3">
+                  <h5 class="font-bold text-gray-700 mb-2">实控人信息</h5>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div><span class="text-gray-600">姓名：</span>${listingData.actual_controller_name || '-'}</div>
+                    <div><span class="text-gray-600">证件类型：</span>${listingData.actual_controller_id_type || '-'}</div>
+                  </div>
+                </div>
+                
+                <div class="border-t pt-3">
+                  <h5 class="font-bold text-gray-700 mb-2">预计营收（万元）</h5>
+                  <div class="grid grid-cols-4 gap-2">
+                    <div><span class="text-gray-600">2026年：</span>${listingData.revenue_2026 || '-'}</div>
+                    <div><span class="text-gray-600">2027年：</span>${listingData.revenue_2027 || '-'}</div>
+                    <div><span class="text-gray-600">2028年：</span>${listingData.revenue_2028 || '-'}</div>
+                    <div><span class="text-gray-600">2029年：</span>${listingData.revenue_2029 || '-'}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <button onclick="viewFullListingInfo(${projectId})" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                <i class="fas fa-expand mr-2"></i>查看完整信息
+              </button>
+            </div>
+          ` : '<div class="bg-yellow-50 p-3 rounded text-yellow-800 text-sm">未提交挂牌信息</div>'}
+          
+          <!-- 审核操作 -->
+          <div class="flex gap-4 mt-6">
+            <button onclick="handleListingApprove(${projectId}, 'approve')" class="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold">
+              <i class="fas fa-check mr-2"></i>审核通过
+            </button>
+            <button onclick="handleListingApprove(${projectId}, 'reject')" class="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold">
+              <i class="fas fa-times mr-2"></i>审核拒绝
+            </button>
+          </div>
+        </div>
+      `;
+    } else {
+      // 已保存草稿但未提交
+      section.innerHTML = `
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p class="text-blue-800">
+            <i class="fas fa-edit mr-2"></i>
+            融资方正在填写投资方案和挂牌信息（已保存草稿）...
+          </p>
+          ${planData ? `
+            <p class="text-sm text-gray-600 mt-2">
+              当前投资金额：¥${(planData.investmentAmount || 0).toLocaleString()} | 
+              分成比例：${((planData.profitShareRatio || 0) * 100).toFixed(2)}%
+            </p>
+          ` : ''}
+        </div>
+      `;
+    }
+    
+  } catch (error) {
+    console.error('加载失败:', error);
+    const section = document.getElementById('listingInfoSection');
+    if (section) {
+      section.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-red-800">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            加载失败：${error.message}
+          </p>
+        </div>
+      `;
+    }
+  }
+};
+
+// 查看完整挂牌信息
+window.viewFullListingInfo = function(projectId) {
+  // TODO: 打开一个新的模态框显示完整信息
+  showAlert('查看完整信息功能待实现', 'info');
+};
+
+// 处理挂牌信息审核
+window.handleListingApprove = async function(projectId, action) {
+  if (action === 'reject') {
+    const remark = prompt('请输入审核拒绝原因：');
+    if (!remark) return;
+    
+    try {
+      // TODO: 调用审核拒绝API
+      showAlert('审核拒绝成功！', 'success');
+      document.getElementById('adminModal').remove();
+      refreshAdminProjects();
+    } catch (error) {
+      showAlert(error.message, 'error');
+    }
+  } else {
+    const confirmed = confirm('确认审核通过投资方案和挂牌信息？');
+    if (!confirmed) return;
+    
+    try {
+      // TODO: 调用审核通过API，更新项目状态
+      showAlert('审核通过成功！可以上传协议了', 'success');
       document.getElementById('adminModal').remove();
       refreshAdminProjects();
     } catch (error) {
