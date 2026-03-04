@@ -252,59 +252,6 @@ function renderMainContent() {
             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
             placeholder="请根据最低联营金额填写"
           >
-          <div class="mt-2">
-            <!-- 最低和最高联营金额 - 横向布局 -->
-            <div class="grid grid-cols-2 gap-2 mb-2">
-              <!-- 最低联营金额 -->
-              <div class="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg px-3 py-2">
-                <div class="flex items-center justify-between mb-1.5">
-                  <div class="flex items-center space-x-1.5">
-                    <i class="fas fa-arrow-down text-orange-500 text-sm"></i>
-                    <span class="font-semibold text-gray-700 text-sm">最低联营金额</span>
-                  </div>
-                  <span class="text-base font-bold text-orange-600">¥<span id="minInvestmentDisplay">--</span></span>
-                </div>
-                <div class="text-xs text-gray-500 mb-1.5">
-                  <i class="fas fa-calendar-alt mr-1"></i>两周，14天
-                </div>
-                <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded px-2 py-1.5">
-                  <div class="font-medium text-orange-700 mb-1">计算公式：</div>
-                  <div class="text-orange-800">每日回款 × 14天 × (1 + 年化 × 14/360)</div>
-                  <div class="text-orange-600 text-xs mt-1.5 pt-1.5 border-t border-orange-200">
-                    <i class="fas fa-info-circle mr-1"></i>至少1批（14天）
-                  </div>
-                </div>
-              </div>
-              
-              <!-- 最高联营金额 -->
-              <div class="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg px-3 py-2">
-                <div class="flex items-center justify-between mb-1.5">
-                  <div class="flex items-center space-x-1.5">
-                    <i class="fas fa-arrow-up text-green-500 text-sm"></i>
-                    <span class="font-semibold text-gray-700 text-sm">最高联营金额</span>
-                  </div>
-                  <span class="text-base font-bold text-green-600">¥<span id="maxInvestmentDisplay">--</span></span>
-                </div>
-                <div class="text-xs text-gray-500 mb-1.5">
-                  <i class="fas fa-calendar-alt mr-1"></i>八周，56天
-                </div>
-                <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded px-2 py-1.5">
-                  <div class="font-medium text-green-700 mb-1">计算公式：</div>
-                  <div class="text-green-800">单批金额 × 4批</div>
-                  <div class="text-xs text-gray-600 mt-0.5">单批 = 每日回款 × 14天 × (1 + 年化 × 14/360)</div>
-                  <div class="text-green-600 text-xs mt-1.5 pt-1.5 border-t border-green-200">
-                    <i class="fas fa-info-circle mr-1"></i>最多4批，每批独立YITO
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- 错误提示 -->
-            <p id="investmentAmountError" class="text-sm text-red-600" style="display:none">
-              <i class="fas fa-exclamation-triangle mr-1"></i>
-              <span id="investmentAmountErrorText"></span>
-            </p>
-          </div>
         </div>
         
         <!-- 分成付款频率 -->
@@ -331,6 +278,54 @@ function renderMainContent() {
           </p>
         </div>
       </div>
+      
+      <!-- 最低和最高联营金额 - 独立行，占满整行宽度 -->
+      <div class="grid grid-cols-2 gap-3">
+        <!-- 最低联营金额 -->
+        <div class="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg px-4 py-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <i class="fas fa-arrow-down text-orange-500"></i>
+              <span class="font-semibold text-gray-700">最低联营金额</span>
+              <span class="text-xs text-gray-500">(两周，14天)</span>
+            </div>
+            <span class="text-lg font-bold text-orange-600">¥<span id="minInvestmentDisplay">--</span></span>
+          </div>
+          <div class="text-sm text-gray-600 bg-white bg-opacity-60 rounded px-3 py-2">
+            <div class="font-medium text-orange-700 mb-1.5">📊 计算公式：</div>
+            <div class="text-orange-800">每日回款 × 14天 × (1 + 年化 × 14/360)</div>
+            <div class="text-orange-600 text-xs mt-2 pt-2 border-t border-orange-200">
+              <i class="fas fa-info-circle mr-1"></i>至少投资1批（14天），这是能在两周内回本的最小金额
+            </div>
+          </div>
+        </div>
+        
+        <!-- 最高联营金额 -->
+        <div class="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg px-4 py-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <i class="fas fa-arrow-up text-green-500"></i>
+              <span class="font-semibold text-gray-700">最高联营金额</span>
+              <span class="text-xs text-gray-500">(八周，56天)</span>
+            </div>
+            <span class="text-lg font-bold text-green-600">¥<span id="maxInvestmentDisplay">--</span></span>
+          </div>
+          <div class="text-sm text-gray-600 bg-white bg-opacity-60 rounded px-3 py-2">
+            <div class="font-medium text-green-700 mb-1.5">📊 计算公式：</div>
+            <div class="text-green-800 mb-1">单批金额 × 4批</div>
+            <div class="text-xs text-gray-600">其中：单批金额 = 每日回款 × 14天 × (1 + 年化 × 14/360)</div>
+            <div class="text-green-600 text-xs mt-2 pt-2 border-t border-green-200">
+              <i class="fas fa-info-circle mr-1"></i>最多投资4批（每批14天），每批独立计算YITO封顶
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 错误提示 -->
+      <p id="investmentAmountError" class="text-sm text-red-600" style="display:none">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        <span id="investmentAmountErrorText"></span>
+      </p>
       
       <!-- 预期开始联营时间 -->
       <div class="mt-6">
