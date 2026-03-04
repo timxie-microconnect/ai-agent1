@@ -252,37 +252,50 @@ function renderMainContent() {
             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
             placeholder="请根据最低联营金额填写"
           >
-          <div class="mt-2 space-y-1">
-            <p class="text-sm text-gray-600">
-              <i class="fas fa-arrow-down mr-1 text-orange-500"></i>
-              <strong>最低联营金额：¥<span id="minInvestmentDisplay">--</span></strong>
-              <span class="text-xs text-gray-500 ml-1">(两周，14天)</span>
-            </p>
-            <div class="ml-5 mt-1 p-2 bg-orange-50 border-l-2 border-orange-300 rounded text-xs text-gray-700">
-              <div class="font-semibold text-orange-700 mb-1">📊 计算公式：</div>
-              <div class="space-y-0.5">
+          <div class="mt-3 space-y-3">
+            <!-- 最低联营金额 -->
+            <div class="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <i class="fas fa-arrow-down text-orange-500"></i>
+                  <span class="font-semibold text-gray-700">最低联营金额</span>
+                  <span class="text-xs text-gray-500">(两周，14天)</span>
+                </div>
+                <span class="text-lg font-bold text-orange-600">¥<span id="minInvestmentDisplay">--</span></span>
+              </div>
+              <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded p-2 space-y-1">
+                <div class="font-medium text-orange-700">计算公式：</div>
                 <div>① 每日回款 = 平均日净成交 × 分成比例</div>
                 <div>② 最低金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)</div>
-                <div class="text-orange-600 font-medium mt-1">💡 说明：至少投资1批（14天），这是能在两周内回本的最小金额</div>
+                <div class="text-orange-600 mt-1.5 pt-1.5 border-t border-orange-200">
+                  <i class="fas fa-info-circle mr-1"></i>至少投资1批（14天），这是能在两周内回本的最小金额
+                </div>
               </div>
             </div>
             
-            <p class="text-sm text-gray-600 mt-2">
-              <i class="fas fa-arrow-up mr-1 text-green-500"></i>
-              <strong>最高联营金额：¥<span id="maxInvestmentDisplay">--</span></strong>
-              <span class="text-xs text-gray-500 ml-1">(八周56天)</span>
-            </p>
-            <div class="ml-5 mt-1 p-2 bg-green-50 border-l-2 border-green-300 rounded text-xs text-gray-700">
-              <div class="font-semibold text-green-700 mb-1">📊 计算公式：</div>
-              <div class="space-y-0.5">
+            <!-- 最高联营金额 -->
+            <div class="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg p-3">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <i class="fas fa-arrow-up text-green-500"></i>
+                  <span class="font-semibold text-gray-700">最高联营金额</span>
+                  <span class="text-xs text-gray-500">(八周，56天)</span>
+                </div>
+                <span class="text-lg font-bold text-green-600">¥<span id="maxInvestmentDisplay">--</span></span>
+              </div>
+              <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded p-2 space-y-1">
+                <div class="font-medium text-green-700">计算公式：</div>
                 <div>① 每日回款 = 平均日净成交 × 分成比例</div>
                 <div>② 单批金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)</div>
                 <div>③ 最高金额 = 单批金额 × 4批</div>
-                <div class="text-green-600 font-medium mt-1">💡 说明：最多投资4批（每批14天），每批独立计算YITO封顶</div>
+                <div class="text-green-600 mt-1.5 pt-1.5 border-t border-green-200">
+                  <i class="fas fa-info-circle mr-1"></i>最多投资4批（每批14天），每批独立计算YITO封顶
+                </div>
               </div>
             </div>
             
-            <p id="investmentAmountError" class="text-sm text-red-600 mt-2" style="display:none">
+            <!-- 错误提示 -->
+            <p id="investmentAmountError" class="text-sm text-red-600" style="display:none">
               <i class="fas fa-exclamation-triangle mr-1"></i>
               <span id="investmentAmountErrorText"></span>
             </p>
