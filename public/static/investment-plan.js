@@ -258,12 +258,31 @@ function renderMainContent() {
               <strong>最低联营金额：¥<span id="minInvestmentDisplay">--</span></strong>
               <span class="text-xs text-gray-500 ml-1">(两周，14天)</span>
             </p>
-            <p class="text-sm text-gray-600">
+            <div class="ml-5 mt-1 p-2 bg-orange-50 border-l-2 border-orange-300 rounded text-xs text-gray-700">
+              <div class="font-semibold text-orange-700 mb-1">📊 计算公式：</div>
+              <div class="space-y-0.5">
+                <div>① 每日回款 = 平均日净成交 × 分成比例</div>
+                <div>② 最低金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)</div>
+                <div class="text-orange-600 font-medium mt-1">💡 说明：至少投资1批（14天），这是能在两周内回本的最小金额</div>
+              </div>
+            </div>
+            
+            <p class="text-sm text-gray-600 mt-2">
               <i class="fas fa-arrow-up mr-1 text-green-500"></i>
               <strong>最高联营金额：¥<span id="maxInvestmentDisplay">--</span></strong>
               <span class="text-xs text-gray-500 ml-1">(八周56天)</span>
             </p>
-            <p id="investmentAmountError" class="text-sm text-red-600" style="display:none">
+            <div class="ml-5 mt-1 p-2 bg-green-50 border-l-2 border-green-300 rounded text-xs text-gray-700">
+              <div class="font-semibold text-green-700 mb-1">📊 计算公式：</div>
+              <div class="space-y-0.5">
+                <div>① 每日回款 = 平均日净成交 × 分成比例</div>
+                <div>② 单批金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)</div>
+                <div>③ 最高金额 = 单批金额 × 4批</div>
+                <div class="text-green-600 font-medium mt-1">💡 说明：最多投资4批（每批14天），每批独立计算YITO封顶</div>
+              </div>
+            </div>
+            
+            <p id="investmentAmountError" class="text-sm text-red-600 mt-2" style="display:none">
               <i class="fas fa-exclamation-triangle mr-1"></i>
               <span id="investmentAmountErrorText"></span>
             </p>
