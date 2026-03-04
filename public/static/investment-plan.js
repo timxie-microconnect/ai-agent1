@@ -252,6 +252,11 @@ function renderMainContent() {
             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
             placeholder="请根据最低联营金额填写"
           >
+          <!-- 错误提示 - 紧跟在输入框下方 -->
+          <p id="investmentAmountError" class="text-sm text-red-600 mt-1" style="display:none">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            <span id="investmentAmountErrorText"></span>
+          </p>
         </div>
         
         <!-- 分成付款频率 -->
@@ -320,12 +325,6 @@ function renderMainContent() {
           </div>
         </div>
       </div>
-      
-      <!-- 错误提示 -->
-      <p id="investmentAmountError" class="text-sm text-red-600" style="display:none">
-        <i class="fas fa-exclamation-triangle mr-1"></i>
-        <span id="investmentAmountErrorText"></span>
-      </p>
       
       <!-- 预期开始联营时间 -->
       <div class="mt-6">
