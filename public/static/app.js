@@ -794,9 +794,9 @@ async function renderAdminDashboard() {
           <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-2xl font-bold"><i class="fas fa-shield-alt mr-2"></i>后台管理系统</h1>
             <div class="flex space-x-4">
-              <button onclick="renderScoringConfigPage()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg">
+              <a href="/admin/scoring-config" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white inline-flex items-center">
                 <i class="fas fa-sliders-h mr-2"></i>筛子配置
-              </button>
+              </a>
               <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg">
                 <i class="fas fa-sign-out-alt mr-2"></i>退出
               </button>
