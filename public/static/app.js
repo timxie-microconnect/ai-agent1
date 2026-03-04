@@ -1,4 +1,4 @@
-// 滴灌投资信息收集系统 - 完整前端应用
+// 滴灌通-投流通信息收集系统 - 完整前端应用
 
 // ==================== 全局状态管理 ====================
 const STATE = {
@@ -126,7 +126,7 @@ function renderLoginPage() {
       <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <div class="text-center mb-6">
           <i class="fas fa-seedling text-5xl text-blue-600 mb-2"></i>
-          <h1 class="text-3xl font-bold text-gray-800">滴灌投资</h1>
+          <h1 class="text-3xl font-bold text-gray-800">滴灌通-投流通</h1>
           <p class="text-gray-600 mt-2">信息收集系统</p>
         </div>
         
@@ -257,7 +257,7 @@ async function renderDashboard() {
       <div class="min-h-screen bg-gray-100">
         <nav class="bg-white shadow-sm">
           <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-seedling text-blue-600 mr-2"></i>滴灌投资</h1>
+            <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-seedling text-blue-600 mr-2"></i>滴灌通-投流通</h1>
             <div class="flex items-center gap-4">
               <div class="text-right">
                 <p class="text-sm text-gray-600">${STATE.user.companyName}</p>
@@ -339,7 +339,7 @@ function render10StepForm() {
     <div class="min-h-screen bg-gray-100">
       <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-8">
         <div class="max-w-4xl mx-auto px-4">
-          <h1 class="text-3xl font-bold mb-2">滴灌投资信息收集系统</h1>
+          <h1 class="text-3xl font-bold mb-2">滴灌通-投流通信息收集系统</h1>
           <p class="text-blue-100">联合经营协议 & 挂牌文件列表信息收集</p>
         </div>
       </div>
@@ -734,7 +734,7 @@ function renderAdminLoginPage() {
         <div class="text-center mb-6">
           <i class="fas fa-lock text-5xl text-gray-700 mb-2"></i>
           <h1 class="text-3xl font-bold text-gray-800">管理员登录</h1>
-          <p class="text-gray-600 mt-2">滴灌投资后台管理系统</p>
+          <p class="text-gray-600 mt-2">滴灌通-投流通后台管理系统</p>
         </div>
         
         <form onsubmit="handleAdminLogin(event)">

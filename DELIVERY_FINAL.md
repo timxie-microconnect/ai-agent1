@@ -2,7 +2,7 @@
 
 ## 📋 执行总结
 
-**项目名称**: 滴灌投资系统 - 投资方案设计模块  
+**项目名称**: 滴灌通-投流通系统 - 投资方案设计模块  
 **交付日期**: 2026-03-02  
 **状态**: ✅ **已完成并通过测试**  
 **Git Commits**: 3个核心提交
@@ -338,7 +338,7 @@ app.get('/investment-plan/:id', (c) => {
     <!DOCTYPE html>
     <html lang="zh-CN">
     <head>
-        <title>投资方案设计 - 滴灌投资</title>
+        <title>投资方案设计 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
     <body class="bg-gray-100">

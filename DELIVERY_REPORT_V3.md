@@ -346,5 +346,5 @@ searchInput.addEventListener('input', debounce(async (e) => {
 ---
 
 **开发团队**  
-滴灌投资信息收集系统 - 筛子评分子系统  
+滴灌通-投流通信息收集系统 - 筛子评分子系统  
 © 2026 All Rights Reserved

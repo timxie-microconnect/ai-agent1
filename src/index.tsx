@@ -927,7 +927,7 @@ app.get('/dashboard', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>我的项目 - 滴灌投资</title>
+        <title>我的项目 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -1180,7 +1180,7 @@ app.get('/nav', (c) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>滴灌投资系统 - 快速导航</title>
+    <title>滴灌通-投流通系统 - 快速导航</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -1188,7 +1188,7 @@ app.get('/nav', (c) => {
     <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full">
         <div class="text-center mb-8">
             <i class="fas fa-seedling text-6xl text-blue-600 mb-4"></i>
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">滴灌投资信息收集系统</h1>
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">滴灌通-投流通信息收集系统</h1>
             <p class="text-gray-600">选择您的身份进入系统</p>
         </div>
 
@@ -1235,7 +1235,7 @@ app.get('/nav', (c) => {
         </div>
 
         <div class="mt-6 text-center text-sm text-gray-500">
-            <p>© 2026 滴灌投资信息收集系统 | v2.0.0</p>
+            <p>© 2026 滴灌通-投流通信息收集系统 | v2.0.0</p>
         </div>
     </div>
 </body>
@@ -1921,7 +1921,7 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>滴灌投资信息收集系统</title>
+        <title>滴灌通-投流通信息收集系统</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -1944,7 +1944,7 @@ app.get('/dashboard', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>用户仪表盘 - 滴灌投资</title>
+        <title>用户仪表盘 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -1967,7 +1967,7 @@ app.get('/project/:id', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>项目详情 - 滴灌投资</title>
+        <title>项目详情 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -1990,7 +1990,7 @@ app.get('/login', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>登录/注册 - 滴灌投资</title>
+        <title>登录/注册 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -2013,7 +2013,7 @@ app.get('/admin/login', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>管理员登录 - 滴灌投资</title>
+        <title>管理员登录 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -2036,7 +2036,7 @@ app.get('/admin', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>管理员后台 - 滴灌投资</title>
+        <title>管理员后台 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -2177,7 +2177,7 @@ app.get('/investment-plan/:id', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>投资方案设计 - 滴灌投资</title>
+        <title>投资方案设计 - 滴灌通-投流通</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>

@@ -337,7 +337,7 @@
 ## 📞 支持信息
 
 **测试人员**: AI Assistant  
-**项目**: webapp - 滴灌投资系统  
+**项目**: webapp - 滴灌通-投流通系统  
 **Git Commit**: fd62f45  
 **测试项目ID**: 24  
 **服务URL**: https://3000-ibnrc4r5fzkd54g4xrh1b-2e1b9533.sandbox.novita.ai
