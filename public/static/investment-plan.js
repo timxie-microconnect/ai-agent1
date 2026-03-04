@@ -198,10 +198,43 @@ function renderMainContent() {
     </div>
     
     <!-- 投资方案计算器 -->
-    <h2 class="text-2xl font-bold text-gray-800 mb-6">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">
       <i class="fas fa-calculator mr-2 text-purple-600"></i>
       投资方案计算器（YITO封顶模型）
     </h2>
+    
+    <!-- 政策说明 -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-4 mb-6">
+      <div class="flex items-start space-x-3">
+        <i class="fas fa-info-circle text-blue-600 text-xl mt-0.5"></i>
+        <div class="flex-1">
+          <h3 class="font-bold text-gray-800 mb-2">📋 联营政策说明</h3>
+          <div class="text-sm text-gray-700 space-y-2">
+            <div class="flex items-start space-x-2">
+              <span class="font-semibold text-blue-700 min-w-[4rem]">基本规则：</span>
+              <span>每批联营固定期限为 <strong class="text-blue-700">14天（两周）</strong>，投资方可获得该期间内的净成交分成</span>
+            </div>
+            <div class="flex items-start space-x-2">
+              <span class="font-semibold text-blue-700 min-w-[4rem]">回款速度：</span>
+              <span>根据近90天净成交数据估算，如果联营金额能在14天内通过分成回本，即为 <strong class="text-green-700">单批出资</strong></span>
+            </div>
+            <div class="flex items-start space-x-2">
+              <span class="font-semibold text-blue-700 min-w-[4rem]">分批逻辑：</span>
+              <span>如果联营金额超过14天回本额度，系统将自动 <strong class="text-orange-700">分批出资</strong>，每批间隔14天，最多支持 <strong class="text-red-700">4批（56天）</strong></span>
+            </div>
+            <div class="flex items-start space-x-2">
+              <span class="font-semibold text-blue-700 min-w-[4rem]">独立封顶：</span>
+              <span>每批出资独立计算YITO封顶，第1批第14天封顶，第2批第28天封顶，依此类推</span>
+            </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded px-3 py-2 mt-2">
+              <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
+              <strong class="text-yellow-800">示例：</strong>
+              <span class="text-gray-700">如果您计划投资 ¥30,000，而每14天只能回款 ¥20,000，系统会安排分2批出资：第1批 ¥20,000（第1-14天），第2批 ¥10,000（第15-28天）</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     
     <div class="space-y-6">
       <!-- 输入参数 -->
