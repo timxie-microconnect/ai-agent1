@@ -256,7 +256,7 @@ function renderMainContent() {
             <p class="text-sm text-gray-600">
               <i class="fas fa-arrow-down mr-1 text-orange-500"></i>
               <strong>最低联营金额：¥<span id="minInvestmentDisplay">--</span></strong>
-              <span class="text-xs text-gray-500 ml-1">(两周)</span>
+              <span class="text-xs text-gray-500 ml-1">(两周，14天)</span>
             </p>
             <p class="text-sm text-gray-600">
               <i class="fas fa-arrow-up mr-1 text-green-500"></i>
@@ -322,7 +322,7 @@ function renderMainContent() {
       <div id="calculationResult" class="bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 border-2 border-purple-300 rounded-xl p-8 mt-8" style="display:none">
         <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">
           <i class="fas fa-chart-pie mr-2 text-purple-600"></i>
-          投资方案评估结果（两周内）
+          投资方案评估结果（两周14天内）
         </h3>
         
         <!-- 关键指标卡片 -->
@@ -625,12 +625,22 @@ window.calculateInvestmentPlan = function() {
   const needBatching = estimatedDays > 14;
   
   if (needBatching) {
-    // 分批逻辑：每批14天
+    // 分批逻辑：每批14天，最多4批
     const batchPeriod = 14;
+    const MAX_BATCHES = 4;
     // 每批金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)
     const batchAmount = dailyRepayment * batchPeriod * (1 + annualRate * batchPeriod / 360);
-    // 批次数
-    const batchCount = Math.ceil(investmentAmount / batchAmount);
+    // 批次数（最多4批）
+    let batchCount = Math.ceil(investmentAmount / batchAmount);
+    
+    // 检查是否超过最大批次限制
+    if (batchCount > MAX_BATCHES) {
+      showAlert(`联营金额过大，最多支持${MAX_BATCHES}批出资（${MAX_BATCHES * 14}天）。当前需要${batchCount}批，请降低联营金额至 ¥${(batchAmount * MAX_BATCHES).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} 以内`, 'error');
+      document.getElementById('calculationResult').style.display = 'none';
+      document.getElementById('batchingResult').style.display = 'none';
+      return;
+    }
+    
     // 最后一批可能金额不同
     const lastBatchAmount = investmentAmount - (batchCount - 1) * batchAmount;
     
