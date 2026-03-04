@@ -596,17 +596,46 @@ window.calculateInvestmentPlan = function() {
   
   // 更新最高和最低联营金额显示
   if (INVESTMENT_STATE.averageRevenue > 0 && profitShareRatio > 0) {
-    // 最高联营金额 = 平均日净成交 × 分成比例 × 56天 × (1 + 年化收益率 × 56/360)
-    const maxDays = 56;
-    const maxInvestment = INVESTMENT_STATE.averageRevenue * profitShareRatio * maxDays * (1 + annualRate * maxDays / 360);
-    document.getElementById('maxInvestmentDisplay').textContent = maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    INVESTMENT_STATE.maxInvestment = maxInvestment;
+    /**
+     * 分批出资逻辑说明：
+     * - 每批固定联营期限：14天（两周）
+     * - 最多支持批次：4批
+     * - 总联营周期：14天 × 4批 = 56天（8周）
+     * 
+     * 计算原理：
+     * 1. 每日回款金额 = 平均日净成交 × 分成比例
+     * 2. 单批金额（含YITO成本）= 每日回款 × 14天 × (1 + 年化收益率 × 14/360)
+     *    - 这是14天内能回本+收益的投资金额
+     * 3. 最低联营金额 = 1批 × 单批金额（至少投1批，14天）
+     * 4. 最高联营金额 = 4批 × 单批金额（最多投4批，56天）
+     * 
+     * 为什么不能直接用 56天 × (1 + 年化 × 56/360)？
+     * - 因为每批是独立计算YITO的，不是一次性投56天
+     * - 第1批：第1天投入，第14天封顶
+     * - 第2批：第15天投入，第28天封顶
+     * - 第3批：第29天投入，第42天封顶
+     * - 第4批：第43天投入，第56天封顶
+     * - 每批都是独立的14天周期，所以要用 4 × 单批金额
+     */
     
-    // 最低联营金额 = 平均日净成交 × 分成比例 × 14天 × (1 + 年化收益率 × 14/360)
-    const minDays = 14;
-    const minInvestment = INVESTMENT_STATE.averageRevenue * profitShareRatio * minDays * (1 + annualRate * minDays / 360);
+    const MAX_BATCHES = 4;  // 最多支持4批出资
+    const BATCH_PERIOD = 14;  // 每批14天
+    
+    // 每日回款金额
+    const dailyRepayment = INVESTMENT_STATE.averageRevenue * profitShareRatio;
+    
+    // 单批金额（14天含YITO成本）
+    const batchAmount = dailyRepayment * BATCH_PERIOD * (1 + annualRate * BATCH_PERIOD / 360);
+    
+    // 最低联营金额 = 1批金额
+    const minInvestment = batchAmount;
     document.getElementById('minInvestmentDisplay').textContent = minInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     INVESTMENT_STATE.minInvestment = minInvestment;
+    
+    // 最高联营金额 = 4批金额
+    const maxInvestment = batchAmount * MAX_BATCHES;
+    document.getElementById('maxInvestmentDisplay').textContent = maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    INVESTMENT_STATE.maxInvestment = maxInvestment;
   }
   
   if (!profitShareRatio || !investmentAmount || investmentAmount <= 0) {
@@ -626,21 +655,12 @@ window.calculateInvestmentPlan = function() {
   
   if (needBatching) {
     // 分批逻辑：每批14天，最多4批
+    // 注：由于最高联营金额已设为 4 × 单批金额，这里不会超过4批
     const batchPeriod = 14;
-    const MAX_BATCHES = 4;
     // 每批金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)
     const batchAmount = dailyRepayment * batchPeriod * (1 + annualRate * batchPeriod / 360);
-    // 批次数（最多4批）
-    let batchCount = Math.ceil(investmentAmount / batchAmount);
-    
-    // 检查是否超过最大批次限制
-    if (batchCount > MAX_BATCHES) {
-      showAlert(`联营金额过大，最多支持${MAX_BATCHES}批出资（${MAX_BATCHES * 14}天）。当前需要${batchCount}批，请降低联营金额至 ¥${(batchAmount * MAX_BATCHES).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} 以内`, 'error');
-      document.getElementById('calculationResult').style.display = 'none';
-      document.getElementById('batchingResult').style.display = 'none';
-      return;
-    }
-    
+    // 批次数（由于金额限制，不会超过4批）
+    const batchCount = Math.ceil(investmentAmount / batchAmount);
     // 最后一批可能金额不同
     const lastBatchAmount = investmentAmount - (batchCount - 1) * batchAmount;
     
