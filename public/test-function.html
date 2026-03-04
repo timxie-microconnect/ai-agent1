@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试 renderScoringConfigPage 函数</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8">
+        <h1 class="text-2xl font-bold mb-4">测试 renderScoringConfigPage 函数</h1>
+        
+        <div id="test-results" class="space-y-4">
+            <div class="border-b pb-4">
+                <h2 class="font-bold mb-2">测试步骤：</h2>
+                <ol class="list-decimal list-inside space-y-2">
+                    <li>检查 app-extended.js 是否加载</li>
+                    <li>检查 renderScoringConfigPage 函数是否存在</li>
+                    <li>尝试调用函数</li>
+                </ol>
+            </div>
+            
+            <div id="results" class="space-y-2"></div>
+        </div>
+        
+        <button onclick="testFunction()" class="mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            运行测试
+        </button>
+    </div>
+    
+    <!-- 加载脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="/static/app.js?v=20260302"></script>
+    <script src="/static/app-extended.js?v=20260302"></script>
+    
+    <script>
+        function log(message, type = 'info') {
+            const colors = {
+                success: 'text-green-700 bg-green-50 border-green-200',
+                error: 'text-red-700 bg-red-50 border-red-200',
+                info: 'text-blue-700 bg-blue-50 border-blue-200'
+            };
+            const div = document.createElement('div');
+            div.className = `p-3 border rounded ${colors[type]}`;
+            div.textContent = message;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        function testFunction() {
+            document.getElementById('results').innerHTML = '';
+            
+            // 测试1: 检查函数是否存在
+            log('测试1: 检查 renderScoringConfigPage 函数...', 'info');
+            if (typeof window.renderScoringConfigPage === 'function') {
+                log('✅ 成功: renderScoringConfigPage 函数存在！', 'success');
+            } else {
+                log('❌ 失败: renderScoringConfigPage 函数不存在', 'error');
+                log('可用的 render 函数: ' + Object.keys(window).filter(k => k.includes('render')).join(', '), 'info');
+                return;
+            }
+            
+            // 测试2: 检查其他必要的对象
+            log('测试2: 检查依赖对象...', 'info');
+            const checks = [
+                ['STATE', typeof STATE !== 'undefined'],
+                ['Router', typeof Router !== 'undefined'],
+                ['API_EXTENDED', typeof API_EXTENDED !== 'undefined']
+            ];
+            
+            checks.forEach(([name, exists]) => {
+                if (exists) {
+                    log(`✅ ${name} 存在`, 'success');
+                } else {
+                    log(`❌ ${name} 不存在`, 'error');
+                }
+            });
+            
+            // 测试3: 查看函数源码
+            log('测试3: 函数源码预览...', 'info');
+            const funcStr = window.renderScoringConfigPage.toString();
+            log('函数长度: ' + funcStr.length + ' 字符', 'info');
+            log('函数开头: ' + funcStr.substring(0, 100) + '...', 'info');
+        }
+        
+        // 页面加载完成后自动运行测试
+        window.addEventListener('load', () => {
+            setTimeout(testFunction, 1000);
+        });
+    </script>
+</body>
+</html>

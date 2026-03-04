@@ -2051,6 +2051,41 @@ app.get('/admin', (c) => {
   `);
 });
 
+// 筛子配置页面 (后端路由)
+app.get('/admin/scoring-config', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>筛子系统配置 - 滴灌通-投流通</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gray-100">
+        <div id="app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="/static/sieve-frontend.js?v=20260302"></script>
+        <script src="/static/app.js?v=20260302"></script>
+        <script src="/static/app-extended.js?v=20260302"></script>
+        <script>
+          // 页面加载完成后直接渲染筛子配置页面
+          window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+              if (typeof window.renderScoringConfigPage === 'function') {
+                window.renderScoringConfigPage();
+              } else {
+                document.getElementById('app').innerHTML = '<div class="p-8 text-center"><h1 class="text-2xl text-red-600">加载失败：renderScoringConfigPage 函数未定义</h1></div>';
+              }
+            }, 100);
+          });
+        </script>
+    </body>
+    </html>
+  `);
+});
+
 // 测试部署页面
 app.get('/test-deployment.html', (c) => {
   return c.html(`<!DOCTYPE html>
