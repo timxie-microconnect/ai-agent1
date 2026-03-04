@@ -684,55 +684,95 @@ function renderBatchTimeline(batchCount, batchAmount, lastBatchAmount, dailyRepa
   } else {
     // 默认明天
     startDate = new Date();
-    startDate.setDate(startDate.setDate() + 1);
+    startDate.setDate(startDate.getDate() + 1);
   }
   
   const timelineHTML = [];
   let currentDate = new Date(startDate);
   
+  // 添加说明
+  timelineHTML.push(`
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg mb-6">
+      <p class="text-sm text-blue-800 flex items-start">
+        <i class="fas fa-info-circle text-blue-600 mr-2 mt-1"></i>
+        <span><strong>预估说明：</strong>以下计算结果基于已上传的近90天净成交数据进行预估。实际分成金额以每日实际净成交为准。</span>
+      </p>
+    </div>
+  `);
+  
   for (let i = 0; i < batchCount; i++) {
     const isLastBatch = (i === batchCount - 1);
     const currentBatchAmount = isLastBatch ? lastBatchAmount : batchAmount;
-    const batchDays = 14;
+    
+    // 计算这一批的实际天数（用于计算YITO封顶）
+    const actualDays = Math.ceil(currentBatchAmount / dailyRepayment);
+    const cappedDays = Math.min(actualDays, 14); // 最多14天
     
     // 出资日期
     const fundingDate = new Date(currentDate);
     
-    // YITO封顶日期 = 出资日期 + 14天
+    // YITO封顶日期 = 出资日期 + 实际回款天数（最多14天）
     const yitoDate = new Date(fundingDate);
-    yitoDate.setDate(yitoDate.getDate() + batchDays);
+    yitoDate.setDate(yitoDate.getDate() + cappedDays);
     
-    // 计算这一批的分成付款日期
-    const paymentDates = [];
-    if (paymentFrequency === 'daily') {
-      // 每日付款：14次
-      for (let d = 1; d <= batchDays; d++) {
-        const payDate = new Date(fundingDate);
-        payDate.setDate(payDate.getDate() + d);
-        paymentDates.push(formatDate(payDate));
-      }
-    } else if (paymentFrequency === 'weekly') {
-      // 每周付款：2次
-      const payDate1 = new Date(fundingDate);
-      payDate1.setDate(payDate1.getDate() + 7);
-      paymentDates.push(formatDate(payDate1));
+    // 计算YITO封顶金额 = 联营金额 × (1 + 年化 × 天数 / 360)
+    const yitoAmount = currentBatchAmount * (1 + annualRate * cappedDays / 360);
+    
+    // 计算每日实际分成金额和累计
+    const dailyPayments = [];
+    let accumulatedPayment = 0;
+    
+    for (let d = 1; d <= cappedDays; d++) {
+      const payDate = new Date(fundingDate);
+      payDate.setDate(payDate.getDate() + d);
       
-      const payDate2 = new Date(fundingDate);
-      payDate2.setDate(payDate2.getDate() + 14);
-      paymentDates.push(formatDate(payDate2));
+      let dailyAmount = dailyRepayment;
+      
+      // 最后一天：补齐到YITO封顶金额
+      if (d === cappedDays) {
+        dailyAmount = yitoAmount - accumulatedPayment;
+      }
+      
+      accumulatedPayment += dailyAmount;
+      
+      dailyPayments.push({
+        date: payDate,
+        day: d,
+        amount: dailyAmount,
+        accumulated: accumulatedPayment,
+        isLast: d === cappedDays
+      });
+    }
+    
+    // 根据付款频率筛选显示的付款日期
+    let displayPayments = [];
+    if (paymentFrequency === 'daily') {
+      // 每日付款：显示所有
+      displayPayments = dailyPayments;
+    } else if (paymentFrequency === 'weekly') {
+      // 每周付款：第7天和最后一天
+      displayPayments = dailyPayments.filter(p => p.day === 7 || p.isLast);
+      // 重新计算每周的累计金额
+      if (displayPayments.length > 0) {
+        displayPayments[0].amount = dailyPayments.slice(0, 7).reduce((sum, p) => sum + p.amount, 0);
+        if (displayPayments.length > 1 && displayPayments[1].day !== 7) {
+          displayPayments[1].amount = dailyPayments.slice(7).reduce((sum, p) => sum + p.amount, 0);
+        }
+      }
     } else if (paymentFrequency === 'biweekly') {
-      // 每两周付款：1次（YITO封顶时）
-      paymentDates.push(formatDate(yitoDate));
+      // 每两周付款：只在最后一天
+      displayPayments = [dailyPayments[dailyPayments.length - 1]];
+      displayPayments[0].amount = accumulatedPayment;
     }
     
     timelineHTML.push(`
-      <div class="bg-white border-2 border-purple-300 rounded-lg p-6 mb-4">
+      <div class="bg-white border-2 ${isLastBatch ? 'border-orange-300' : 'border-purple-300'} rounded-lg p-6 mb-4">
         <div class="flex items-center justify-between mb-4">
-          <h4 class="text-lg font-bold text-purple-700">
+          <h4 class="text-lg font-bold ${isLastBatch ? 'text-orange-700' : 'text-purple-700'}">
             <i class="fas fa-layer-group mr-2"></i>
-            第 ${i + 1} 批出资
+            第 ${i + 1} 批出资 ${isLastBatch ? '（最后一批）' : ''}
           </h4>
-          <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">
+          <span class="px-3 py-1 ${isLastBatch ? 'bg-orange-100 text-orange-700' : 'bg-purple-100 text-purple-700'} rounded-full text-sm font-semibold">
             ¥${currentBatchAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}
           </span>
         </div>
@@ -749,35 +789,60 @@ function renderBatchTimeline(batchCount, batchAmount, lastBatchAmount, dailyRepa
             </div>
           </div>
           
-          <!-- 分成付款日期 -->
+          <!-- 每日分成明细 -->
           <div class="flex items-start">
             <div class="flex-shrink-0 w-32 text-gray-600 font-medium">
               <i class="fas fa-hand-holding-usd text-blue-600 mr-2"></i>
               分成付款
             </div>
             <div class="flex-1">
-              <div class="text-sm text-gray-700">
-                ${paymentDates.map((date, idx) => `
-                  <div class="inline-block mr-4 mb-2">
-                    <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded">
-                      第${idx + 1}次: ${date}
+              <div class="text-sm space-y-1">
+                ${displayPayments.map((payment, idx) => `
+                  <div class="flex items-center justify-between bg-blue-50 px-3 py-2 rounded ${payment.isLast ? 'border-2 border-orange-400' : ''}">
+                    <span class="text-blue-700">
+                      ${paymentFrequency === 'daily' ? `第${payment.day}天` : `第${idx + 1}次`}: ${formatDate(payment.date)}
+                    </span>
+                    <span class="font-bold ${payment.isLast ? 'text-orange-600' : 'text-blue-700'}">
+                      ¥${payment.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                      ${payment.isLast ? ' <i class="fas fa-flag-checkered ml-1"></i>' : ''}
                     </span>
                   </div>
                 `).join('')}
+                <div class="text-xs text-gray-500 mt-2 pl-3">
+                  ${paymentFrequency === 'daily' ? '每日分成' : ''}
+                  ${paymentFrequency === 'weekly' ? '每周汇总分成' : ''}
+                  ${paymentFrequency === 'biweekly' ? '两周到期一次性分成' : ''}
+                  · 共${cappedDays}天
+                </div>
               </div>
             </div>
           </div>
           
-          <!-- YITO封顶日期 -->
+          <!-- YITO封顶信息 -->
           <div class="flex items-start">
             <div class="flex-shrink-0 w-32 text-gray-600 font-medium">
               <i class="fas fa-flag-checkered text-orange-600 mr-2"></i>
               YITO封顶
             </div>
-            <div class="font-semibold text-orange-600">
-              ${formatDate(yitoDate)}
+            <div>
+              <div class="font-semibold text-orange-600">
+                ${formatDate(yitoDate)} 
+              </div>
+              <div class="text-sm text-gray-600 mt-1">
+                封顶金额：<span class="font-bold text-orange-600">¥${yitoAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                （${cappedDays}天 × ${(annualRate * 100).toFixed(0)}% 年化）
+              </div>
             </div>
           </div>
+          
+          ${isLastBatch && cappedDays < 14 ? `
+          <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded mt-3">
+            <p class="text-xs text-yellow-800">
+              <i class="fas fa-info-circle mr-1"></i>
+              最后一批金额较少，预计${cappedDays}天即可完成回款并达到YITO封顶
+            </p>
+          </div>
+          ` : ''}
         </div>
       </div>
     `);
@@ -785,6 +850,24 @@ function renderBatchTimeline(batchCount, batchAmount, lastBatchAmount, dailyRepa
     // 下一批出资日期 = 当前批YITO日期
     currentDate = new Date(yitoDate);
   }
+  
+  // 显示总结
+  const totalDays = batchCount > 0 ? Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24)) : 0;
+  timelineHTML.push(`
+    <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-lg p-4 mt-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="font-bold text-green-800">
+            <i class="fas fa-check-circle mr-2"></i>
+            全部${batchCount}批联营完成
+          </p>
+          <p class="text-sm text-green-700 mt-1">
+            总周期：约${totalDays}天 · 起始：${formatDate(startDate)} · 结束：${formatDate(currentDate)}
+          </p>
+        </div>
+      </div>
+    </div>
+  `);
   
   document.getElementById('timelineContainer').innerHTML = timelineHTML.join('');
 }
