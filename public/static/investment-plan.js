@@ -228,7 +228,7 @@ function renderMainContent() {
           >
           <p class="text-sm text-gray-600 mt-1">
             <i class="fas fa-info-circle mr-1"></i>
-            一般为10%-20%
+            请根据自身情况谨慎评估，建议不高于净利润率
           </p>
         </div>
         
@@ -256,7 +256,7 @@ function renderMainContent() {
             <p class="text-sm text-gray-600">
               <i class="fas fa-arrow-down mr-1 text-orange-500"></i>
               <strong>最低联营金额：¥<span id="minInvestmentDisplay">--</span></strong>
-              <span class="text-xs text-gray-500 ml-1">(单批14天)</span>
+              <span class="text-xs text-gray-500 ml-1">(两周)</span>
             </p>
             <p class="text-sm text-gray-600">
               <i class="fas fa-arrow-up mr-1 text-green-500"></i>
@@ -322,7 +322,7 @@ function renderMainContent() {
       <div id="calculationResult" class="bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 border-2 border-purple-300 rounded-xl p-8 mt-8" style="display:none">
         <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">
           <i class="fas fa-chart-pie mr-2 text-purple-600"></i>
-          投资方案评估结果（单批14天内）
+          投资方案评估结果（两周内）
         </h3>
         
         <!-- 关键指标卡片 -->
