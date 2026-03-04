@@ -264,15 +264,14 @@ function renderMainContent() {
                   </div>
                   <span class="text-base font-bold text-orange-600">¥<span id="minInvestmentDisplay">--</span></span>
                 </div>
-                <div class="text-xs text-gray-500 mb-1">
+                <div class="text-xs text-gray-500 mb-1.5">
                   <i class="fas fa-calendar-alt mr-1"></i>两周，14天
                 </div>
-                <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded px-2 py-1.5 space-y-0.5">
-                  <div class="font-medium text-orange-700">计算公式：</div>
-                  <div>① 每日回款 = 平均日净成交 × 分成比例</div>
-                  <div>② 最低金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)</div>
-                  <div class="text-orange-600 mt-1 pt-1 border-t border-orange-200">
-                    <i class="fas fa-info-circle mr-1"></i>至少投资1批（14天），这是能在两周内回本的最小金额
+                <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded px-2 py-1.5">
+                  <div class="font-medium text-orange-700 mb-1">计算公式：</div>
+                  <div class="text-orange-800">每日回款 × 14天 × (1 + 年化 × 14/360)</div>
+                  <div class="text-orange-600 text-xs mt-1.5 pt-1.5 border-t border-orange-200">
+                    <i class="fas fa-info-circle mr-1"></i>至少1批（14天）
                   </div>
                 </div>
               </div>
@@ -286,16 +285,15 @@ function renderMainContent() {
                   </div>
                   <span class="text-base font-bold text-green-600">¥<span id="maxInvestmentDisplay">--</span></span>
                 </div>
-                <div class="text-xs text-gray-500 mb-1">
+                <div class="text-xs text-gray-500 mb-1.5">
                   <i class="fas fa-calendar-alt mr-1"></i>八周，56天
                 </div>
-                <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded px-2 py-1.5 space-y-0.5">
-                  <div class="font-medium text-green-700">计算公式：</div>
-                  <div>① 每日回款 = 平均日净成交 × 分成比例</div>
-                  <div>② 单批金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)</div>
-                  <div>③ 最高金额 = 单批金额 × 4批</div>
-                  <div class="text-green-600 mt-1 pt-1 border-t border-green-200">
-                    <i class="fas fa-info-circle mr-1"></i>最多投资4批（每批14天），每批独立计算YITO封顶
+                <div class="text-xs text-gray-600 bg-white bg-opacity-60 rounded px-2 py-1.5">
+                  <div class="font-medium text-green-700 mb-1">计算公式：</div>
+                  <div class="text-green-800">单批金额 × 4批</div>
+                  <div class="text-xs text-gray-600 mt-0.5">单批 = 每日回款 × 14天 × (1 + 年化 × 14/360)</div>
+                  <div class="text-green-600 text-xs mt-1.5 pt-1.5 border-t border-green-200">
+                    <i class="fas fa-info-circle mr-1"></i>最多4批，每批独立YITO
                   </div>
                 </div>
               </div>
