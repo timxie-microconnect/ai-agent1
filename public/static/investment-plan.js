@@ -244,13 +244,13 @@ function renderMainContent() {
             id="investmentAmount"
             name="investmentAmount" 
             step="1000" 
-            min="5000" 
+            min="0" 
             required 
             value="${INVESTMENT_STATE.currentPlan.investmentAmount || ''}"
             oninput="validateAndCalculateInvestment()"
             onblur="validateInvestmentAmount()"
             class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
-            placeholder="100000"
+            placeholder="请根据最低联营金额填写"
           >
           <div class="mt-2 space-y-1">
             <p class="text-sm text-gray-600">
@@ -472,7 +472,7 @@ window.handleFileUpload = async function(event) {
     const result = await INVESTMENT_API.uploadRevenueData(INVESTMENT_STATE.projectId, data);
     
     if (result.success) {
-      showAlert(`数据上传成功！平均每日净成交：¥${result.data.average.toLocaleString()}`, 'success');
+      showAlert(`数据上传成功！平均每日净成交：¥${result.data.average.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'success');
       
       // 刷新页面
       await renderInvestmentPlanPage(INVESTMENT_STATE.projectId);
@@ -524,13 +524,13 @@ window.validateAndCalculateInvestment = function() {
     return;
   }
   
-  const minInvestment = 5000;
+  const minInvestment = INVESTMENT_STATE.minInvestment || 0;
   const maxInvestment = INVESTMENT_STATE.maxInvestment || Infinity;
   
   // 检查是否超出范围
-  if (investmentAmount < minInvestment) {
+  if (minInvestment > 0 && investmentAmount < minInvestment) {
     errorDisplay.style.display = 'block';
-    errorText.textContent = `投资金额不能低于最低联营金额 ¥${minInvestment.toLocaleString()}`;
+    errorText.textContent = `投资金额不能低于最低联营金额 ¥${minInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     investmentInput.classList.add('border-red-500');
     investmentInput.classList.remove('border-gray-300');
   } else if (maxInvestment !== Infinity && investmentAmount > maxInvestment) {
@@ -559,16 +559,16 @@ window.validateInvestmentAmount = function() {
     return;
   }
   
-  const minInvestment = 5000;
+  const minInvestment = INVESTMENT_STATE.minInvestment || 0;
   const maxInvestment = INVESTMENT_STATE.maxInvestment || Infinity;
   
   // 自动修正到合法范围
-  if (investmentAmount < minInvestment) {
-    investmentInput.value = minInvestment;
-    showAlert(`投资金额已自动调整为最低金额 ¥${minInvestment.toLocaleString()}`, 'warning');
+  if (minInvestment > 0 && investmentAmount < minInvestment) {
+    investmentInput.value = Math.ceil(minInvestment);
+    showAlert(`投资金额已自动调整为最低金额 ¥${minInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'warning');
   } else if (maxInvestment !== Infinity && investmentAmount > maxInvestment) {
     investmentInput.value = Math.floor(maxInvestment);
-    showAlert(`投资金额已自动调整为最高金额 ¥${Math.floor(maxInvestment).toLocaleString()}`, 'warning');
+    showAlert(`投资金额已自动调整为最高金额 ¥${maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'warning');
   }
   
   // 隐藏错误提示
@@ -597,18 +597,32 @@ window.calculateInvestmentPlan = function() {
   // 更新最高和最低联营金额显示
   if (INVESTMENT_STATE.averageRevenue > 0 && profitShareRatio > 0) {
     /**
-     * 分批出资逻辑说明：
+     * ============================================
+     * 分批出资逻辑说明
+     * ============================================
+     * 
+     * 【基本规则】
      * - 每批固定联营期限：14天（两周）
      * - 最多支持批次：4批
      * - 总联营周期：14天 × 4批 = 56天（8周）
      * 
-     * 计算原理：
-     * 1. 每日回款金额 = 平均日净成交 × 分成比例
-     * 2. 单批金额（含YITO成本）= 每日回款 × 14天 × (1 + 年化收益率 × 14/360)
-     *    - 这是14天内能回本+收益的投资金额
-     * 3. 最低联营金额 = 1批 × 单批金额（至少投1批，14天）
-     * 4. 最高联营金额 = 4批 × 单批金额（最多投4批，56天）
+     * 【计算步骤】
+     * 步骤1：计算每日回款金额
+     *   每日回款 = 平均日净成交 × 分成比例
      * 
+     * 步骤2：计算单批金额（含YITO成本）
+     *   单批金额 = 每日回款 × 14天 × (1 + 年化收益率 × 14/360)
+     *   说明：这是14天内能回本+收益的投资金额
+     * 
+     * 步骤3：计算最低联营金额
+     *   公式：最低联营金额 = 单批金额 × 1
+     *   说明：至少投资1批（14天），低于此金额无法开展联营
+     * 
+     * 步骤4：计算最高联营金额
+     *   公式：最高联营金额 = 单批金额 × 4
+     *   说明：最多投资4批（56天），超过此金额需要分多次联营
+     * 
+     * 【重要说明】
      * 为什么不能直接用 56天 × (1 + 年化 × 56/360)？
      * - 因为每批是独立计算YITO的，不是一次性投56天
      * - 第1批：第1天投入，第14天封顶
@@ -616,23 +630,25 @@ window.calculateInvestmentPlan = function() {
      * - 第3批：第29天投入，第42天封顶
      * - 第4批：第43天投入，第56天封顶
      * - 每批都是独立的14天周期，所以要用 4 × 单批金额
+     * 
+     * ============================================
      */
     
     const MAX_BATCHES = 4;  // 最多支持4批出资
     const BATCH_PERIOD = 14;  // 每批14天
     
-    // 每日回款金额
+    // 步骤1：计算每日回款金额
     const dailyRepayment = INVESTMENT_STATE.averageRevenue * profitShareRatio;
     
-    // 单批金额（14天含YITO成本）
+    // 步骤2：计算单批金额（14天含YITO成本）
     const batchAmount = dailyRepayment * BATCH_PERIOD * (1 + annualRate * BATCH_PERIOD / 360);
     
-    // 最低联营金额 = 1批金额
+    // 步骤3：最低联营金额 = 单批金额 × 1
     const minInvestment = batchAmount;
     document.getElementById('minInvestmentDisplay').textContent = minInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     INVESTMENT_STATE.minInvestment = minInvestment;
     
-    // 最高联营金额 = 4批金额
+    // 步骤4：最高联营金额 = 单批金额 × 4
     const maxInvestment = batchAmount * MAX_BATCHES;
     document.getElementById('maxInvestmentDisplay').textContent = maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     INVESTMENT_STATE.maxInvestment = maxInvestment;
@@ -693,10 +709,10 @@ window.calculateInvestmentPlan = function() {
     document.getElementById('formulaAvgRevenue').textContent = INVESTMENT_STATE.averageRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.getElementById('formulaProfitShare').textContent = (profitShareRatio * 100).toFixed(2);
     document.getElementById('formulaDailyRepay').textContent = dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    document.getElementById('formulaInvestAmount').textContent = investmentAmount.toLocaleString();
+    document.getElementById('formulaInvestAmount').textContent = investmentAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.getElementById('formulaDailyRepay2').textContent = dailyRepayment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.getElementById('formulaDays').textContent = estimatedDays;
-    document.getElementById('formulaInvestAmount2').textContent = investmentAmount.toLocaleString();
+    document.getElementById('formulaInvestAmount2').textContent = investmentAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     document.getElementById('formulaRate').textContent = (annualRate * 100).toFixed(0);
     document.getElementById('formulaDays2').textContent = estimatedDays;
     document.getElementById('formulaTotal').textContent = totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -940,13 +956,14 @@ window.handleSaveInvestmentPlan = async function(event) {
     const investmentAmount = parseFloat(form.investmentAmount.value);
     const paymentFrequency = form.paymentFrequency.value;
     
-    if (investmentAmount < 5000) {
-      throw new Error('联营资金总额不能少于5,000元');
+    // 检查是否低于最低联营金额
+    if (INVESTMENT_STATE.minInvestment && investmentAmount < INVESTMENT_STATE.minInvestment) {
+      throw new Error(`联营资金总额不能低于最低联营金额 ¥${INVESTMENT_STATE.minInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
     }
     
     // 检查是否超过最高可联营金额
     if (INVESTMENT_STATE.maxInvestment && investmentAmount > INVESTMENT_STATE.maxInvestment) {
-      throw new Error(`投资金额不能超过最高可联营金额 ¥${INVESTMENT_STATE.maxInvestment.toLocaleString()}`);
+      throw new Error(`投资金额不能超过最高可联营金额 ¥${INVESTMENT_STATE.maxInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`);
     }
     
     const result = await INVESTMENT_API.createInvestmentPlan(
@@ -958,7 +975,7 @@ window.handleSaveInvestmentPlan = async function(event) {
     
     if (result.success) {
       const totalReturn = result.data.totalReturnAmount || 0;
-      showAlert(`投资方案保存成功！总支付金额（YITO封顶）：¥${totalReturn.toLocaleString()}`, 'success');
+      showAlert(`投资方案保存成功！总支付金额（YITO封顶）：¥${totalReturn.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'success');
       
       // 刷新页面
       await renderInvestmentPlanPage(INVESTMENT_STATE.projectId);
@@ -1415,11 +1432,11 @@ window.saveListingDraft = async function() {
     
     if (investmentAmount && profitShareRatio) {
       // 验证投资金额范围
-      const minInvestment = 5000;
+      const minInvestment = INVESTMENT_STATE.minInvestment;
       const maxInvestment = INVESTMENT_STATE.maxInvestment;
       
-      if (investmentAmount < minInvestment) {
-        showAlert(`投资金额不能低于最低联营金额 ¥${minInvestment.toLocaleString()}`, 'error');
+      if (minInvestment && investmentAmount < minInvestment) {
+        showAlert(`投资金额不能低于最低联营金额 ¥${minInvestment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, 'error');
         return;
       }
       
