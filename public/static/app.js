@@ -509,7 +509,7 @@ window.handleFormSubmit = async function(event) {
       profitRate: 0,  // 新系统不使用
       shopScore: 5,   // 新系统不使用
       operationMonths: 12,  // 新系统不使用
-      businessDescription: '抖店投流垫资业务'
+      businessDescription: '抖店投流融资业务'
     },
     step3: {},
     step4: [{ entityType: '主体A', name: '张三', idType: '身份证', idNumber: '110101199001011234' }],

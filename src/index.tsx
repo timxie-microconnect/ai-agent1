@@ -1260,7 +1260,7 @@ app.get('/sieve-demo', (c) => {
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <h1 class="text-3xl font-bold text-gray-800 mb-2">
                     <i class="fas fa-filter text-blue-600 mr-2"></i>
-                    抖店投流垫资准入筛子 + 智能评分系统
+                    抖店投流融资准入筛子 + 智能评分系统
                 </h1>
                 <p class="text-gray-600">基于1487个二级类目精确阈值的准入与评分系统</p>
             </div>
@@ -1525,7 +1525,7 @@ app.get('/apply-financing', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>抖店投流垫资申请 - 筛子准入系统</title>
+        <title>抖店投流融资申请 - 筛子准入系统</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -1537,7 +1537,7 @@ app.get('/apply-financing', (c) => {
                     <div>
                         <h1 class="text-2xl font-bold text-gray-800">
                             <i class="fas fa-hand-holding-usd text-blue-600 mr-2"></i>
-                            抖店投流垫资申请
+                            抖店投流融资申请
                         </h1>
                         <p class="text-gray-600 mt-1">基于1487个类目精确阈值的智能准入与评分系统</p>
                     </div>
