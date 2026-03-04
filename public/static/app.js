@@ -794,9 +794,9 @@ async function renderAdminDashboard() {
           <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-2xl font-bold"><i class="fas fa-shield-alt mr-2"></i>后台管理系统</h1>
             <div class="flex space-x-4">
-              <a href="/admin/scoring-config" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white inline-flex items-center">
+              <button id="sieve-config-btn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white">
                 <i class="fas fa-sliders-h mr-2"></i>筛子配置
-              </a>
+              </button>
               <button onclick="logout()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg">
                 <i class="fas fa-sign-out-alt mr-2"></i>退出
               </button>
@@ -872,6 +872,25 @@ async function renderAdminDashboard() {
   } catch (error) {
     showAlert(error.message, 'error');
   }
+  
+  // 绑定筛子配置按钮事件（延迟执行确保DOM已渲染）
+  setTimeout(() => {
+    const sieveBtn = document.getElementById('sieve-config-btn');
+    if (sieveBtn) {
+      sieveBtn.onclick = function() {
+        // 检查函数是否存在
+        if (typeof window.renderScoringConfigPage === 'function') {
+          window.renderScoringConfigPage();
+        } else {
+          console.error('renderScoringConfigPage 函数未定义');
+          showAlert('筛子配置功能加载失败，请刷新页面重试', 'error');
+        }
+      };
+      console.log('✅ 筛子配置按钮事件已绑定');
+    } else {
+      console.error('❌ 未找到筛子配置按钮');
+    }
+  }, 100);
 }
 
 window.refreshAdminProjects = function() {
