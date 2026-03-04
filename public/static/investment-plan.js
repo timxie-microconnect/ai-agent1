@@ -212,11 +212,11 @@ function renderMainContent() {
           <div class="text-sm text-gray-700 space-y-2">
             <div class="flex items-start space-x-2">
               <span class="font-semibold text-blue-700 min-w-[4rem]">基本规则：</span>
-              <span>每批联营固定期限为 <strong class="text-blue-700">14天（两周）</strong>，投资方可获得该期间内的净成交分成</span>
+              <span>每批联营固定期限为 <strong class="text-blue-700">14天（两周）</strong>，融资方需按照约定的分成付款频率向滴灌通支付净成交分成</span>
             </div>
             <div class="flex items-start space-x-2">
               <span class="font-semibold text-blue-700 min-w-[4rem]">回款速度：</span>
-              <span>根据近90天净成交数据估算，如果联营金额能在14天内通过分成回本，即为 <strong class="text-green-700">单批出资</strong></span>
+              <span>根据近90天平均净成交估算，如果联营金额能在14天内通过分成回本，即为 <strong class="text-green-700">单批出资</strong></span>
             </div>
             <div class="flex items-start space-x-2">
               <span class="font-semibold text-blue-700 min-w-[4rem]">分批逻辑：</span>
@@ -229,7 +229,12 @@ function renderMainContent() {
             <div class="bg-yellow-50 border border-yellow-200 rounded px-3 py-2 mt-2">
               <i class="fas fa-lightbulb text-yellow-600 mr-2"></i>
               <strong class="text-yellow-800">示例：</strong>
-              <span class="text-gray-700">如果您计划投资 ¥30,000，而每14天只能回款 ¥20,000，系统会安排分2批出资：第1批 ¥20,000（第1-14天），第2批 ¥10,000（第15-28天）</span>
+              <span class="text-gray-700">如果联营资金总额为 ¥30,000，而根据历史数据每14天预计回款 ¥20,000，系统会安排分2批出资：第1批 ¥20,000（第1-14天），第2批 ¥10,000（第15-28天）</span>
+            </div>
+            <div class="bg-red-50 border border-red-300 rounded px-3 py-2 mt-2">
+              <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>
+              <strong class="text-red-800">重要提示：</strong>
+              <span class="text-gray-700">以下计算结果仅基于过往90天平均净成交数据进行 <strong class="text-red-700">预估示意</strong>，实际YITO封顶时间和分成支付金额将根据 <strong class="text-red-700">实际每日净成交金额</strong> 具体计算，可能与预估存在差异</span>
             </div>
           </div>
         </div>
