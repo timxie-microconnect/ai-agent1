@@ -1931,6 +1931,7 @@ app.get('/', (c) => {
         <script src="/static/sieve-frontend.js?v=20260302"></script>
         <script src="/static/app.js?v=20260302"></script>
         <script src="/static/app-extended.js?v=20260302"></script>
+        <script src="/static/radar-chart.js?v=20260305"></script>
     </body>
     </html>
   `);
@@ -1954,6 +1955,7 @@ app.get('/dashboard', (c) => {
         <script src="/static/sieve-frontend.js?v=20260302"></script>
         <script src="/static/app.js?v=20260302"></script>
         <script src="/static/app-extended.js?v=20260302"></script>
+        <script src="/static/radar-chart.js?v=20260305"></script>
     </body>
     </html>
   `);
@@ -1977,6 +1979,7 @@ app.get('/project/:id', (c) => {
         <script src="/static/sieve-frontend.js?v=20260302"></script>
         <script src="/static/app.js?v=20260302"></script>
         <script src="/static/app-extended.js?v=20260302"></script>
+        <script src="/static/radar-chart.js?v=20260305"></script>
     </body>
     </html>
   `);
@@ -2000,6 +2003,7 @@ app.get('/login', (c) => {
         <script src="/static/sieve-frontend.js?v=20260302"></script>
         <script src="/static/app.js?v=20260302"></script>
         <script src="/static/app-extended.js?v=20260302"></script>
+        <script src="/static/radar-chart.js?v=20260305"></script>
     </body>
     </html>
   `);
@@ -2020,9 +2024,12 @@ app.get('/admin/login', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <script src="/static/sieve-frontend.js?v=20260302"></script>
         <script src="/static/app.js?v=20260302"></script>
         <script src="/static/app-extended.js?v=20260302"></script>
+        <script src="/static/radar-chart.js?v=20260305"></script>
+        
     </body>
     </html>
   `);
@@ -2043,9 +2050,12 @@ app.get('/admin', (c) => {
     <body class="bg-gray-100">
         <div id="app"></div>
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <script src="/static/sieve-frontend.js?v=20260302"></script>
         <script src="/static/app.js?v=20260302"></script>
         <script src="/static/app-extended.js?v=20260302"></script>
+        <script src="/static/radar-chart.js?v=20260305"></script>
+        
     </body>
     </html>
   `);
@@ -2069,6 +2079,7 @@ app.get('/admin/scoring-config', (c) => {
         <script src="/static/sieve-frontend.js?v=20260302"></script>
         <script src="/static/app.js?v=20260302"></script>
         <script src="/static/app-extended.js?v=20260302"></script>
+        <script src="/static/radar-chart.js?v=20260305"></script>
         <script>
           // 页面加载完成后直接渲染筛子配置页面
           window.addEventListener('DOMContentLoaded', () => {

@@ -1024,6 +1024,9 @@ window.openAdminProjectModal = async function(id) {
                 </div>
               ` : ''}
               
+              <!-- 资产端评估雷达图容器 -->
+              <div id="radar-chart-container-${id}" class="mt-2"></div>
+              
               <button onclick="handleSieveScore(${id})" class="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
                 <i class="fas fa-redo mr-2"></i>重新评分
               </button>
@@ -1083,6 +1086,32 @@ window.openAdminProjectModal = async function(id) {
       setTimeout(() => {
         window.loadInvestmentPlanAndListingInfo(id);
       }, 100);
+    }
+    
+    // 如果有筛子评分，渲染资产端评估雷达图
+    if (project.sieve_score != null && typeof window.insertRadarChart === 'function') {
+      setTimeout(() => {
+        try {
+          let scoreDetails = null;
+          if (project.sieve_score_details) {
+            scoreDetails = JSON.parse(project.sieve_score_details);
+          }
+          // 构建传给雷达图的项目数据（需包含所有原始字段）
+          const radarData = {
+            net_roi: project.net_roi,
+            settle_roi: project.settle_roi,
+            settle_rate: project.settle_rate,
+            history_spend: project.history_spend,
+            daily_revenue_volatility: project.daily_revenue_volatility || 
+              (scoreDetails && scoreDetails.revenue_stats ? scoreDetails.revenue_stats.volatility * 100 : 0),
+            sieve_score: project.sieve_score,
+            main_category: project.main_category,
+          };
+          window.insertRadarChart(`radar-chart-container-${id}`, radarData, scoreDetails);
+        } catch (e) {
+          console.warn('雷达图渲染失败:', e);
+        }
+      }, 150);
     }
   } catch (error) {
     showAlert(error.message, 'error');
