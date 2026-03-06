@@ -329,8 +329,8 @@ function drawAssetRadarChart(canvasId, scores, options = {}) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   
-  // 设置高分辨率
-  const displaySize = options.size || 420;
+  // 设置高分辨率 —— Canvas只负责绘制图形本体，标签由HTML浮层承担
+  const displaySize = options.size || 360;
   canvas.width = displaySize * dpr;
   canvas.height = displaySize * dpr;
   canvas.style.width = displaySize + 'px';
@@ -339,16 +339,12 @@ function drawAssetRadarChart(canvasId, scores, options = {}) {
 
   const cx = displaySize / 2;
   const cy = displaySize / 2;
-  const maxR = displaySize * 0.36;  // 最大半径
+  const maxR = displaySize * 0.38;  // 最大半径（稍大充分利用空间）
   const levels = 5;                  // 刻度层数（2,4,6,8,10）
 
   // 清除画布
   ctx.clearRect(0, 0, displaySize, displaySize);
 
-  // 9个维度的角度（从正上方顺时针，与图片一致）
-  // 顺序：回报强度(正右上)、回报质量(右)、名声敏感度(右下)、
-  //       Leverage管控力(下偏右)、自动报数和打款(正下)、生意的利润率(下偏左)、
-  //       生命周期可见性(左)、波动可控性(左上)、现金流可靠性(左上偏上)
   const n = RADAR_DIMENSIONS.length; // 9
   const angles = RADAR_DIMENSIONS.map((_, i) => {
     // 从正上方（-90度）开始，顺时针均匀分布
@@ -368,17 +364,17 @@ function drawAssetRadarChart(canvasId, scores, options = {}) {
   const scoreValues = RADAR_DIMENSIONS.map(d => (scores[d.key] || 0) / 10);
   drawDataPolygon(ctx, cx, cy, maxR, angles, scoreValues);
 
-  // ---- 绘制数据点 ----
+  // ---- 绘制数据点（仅圆点，不写文字） ----
   drawDataPoints(ctx, cx, cy, maxR, angles, scoreValues, scores);
-
-  // ---- 绘制标签 ----
-  drawLabels(ctx, cx, cy, maxR, angles, scores, displaySize);
 
   // ---- 绘制中心点 ----
   ctx.beginPath();
   ctx.arc(cx, cy, 3, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(100,100,100,0.5)';
   ctx.fill();
+
+  // ---- 返回角度和半径信息供HTML浮层使用 ----
+  return { cx, cy, maxR, angles, displaySize };
 }
 
 /**
@@ -509,7 +505,7 @@ function drawDataPolygon(ctx, cx, cy, maxR, angles, scoreRatios) {
 }
 
 /**
- * 绘制数据点
+ * 绘制数据点（只绘制圆点，分数由HTML浮层显示）
  */
 function drawDataPoints(ctx, cx, cy, maxR, angles, scoreRatios, scores) {
   const n = RADAR_DIMENSIONS.length;
@@ -518,9 +514,8 @@ function drawDataPoints(ctx, cx, cy, maxR, angles, scoreRatios, scores) {
     const x = cx + r * Math.cos(angles[i]);
     const y = cy + r * Math.sin(angles[i]);
     const dim = RADAR_DIMENSIONS[i];
-    const score = scores[dim.key] || 0;
 
-    // 外圈
+    // 外圈（白色）
     ctx.beginPath();
     ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.fillStyle = 'white';
@@ -534,89 +529,131 @@ function drawDataPoints(ctx, cx, cy, maxR, angles, scoreRatios, scores) {
     ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fillStyle = dim.color;
     ctx.fill();
-
-    // 得分数字（显示在数据点旁边）
-    const labelOffset = 16;
-    const lx = cx + (r + labelOffset) * Math.cos(angles[i]);
-    const ly = cy + (r + labelOffset) * Math.sin(angles[i]);
-    ctx.font = 'bold 11px sans-serif';
-    ctx.fillStyle = dim.color;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(score.toFixed(1), lx, ly);
   }
 }
 
 /**
- * 绘制维度标签
+ * 创建HTML浮层标签（替代Canvas文字绘制，解决重叠和截断问题）
+ * @param {string} containerId - 雷达图外层容器ID（含canvas+overlay的relative div）
+ * @param {Object} scores - 各维度得分
+ * @param {number} cx - 画布中心x
+ * @param {number} cy - 画布中心y
+ * @param {number} maxR - 最大半径
+ * @param {Array} angles - 各轴角度
+ * @param {number} canvasSize - Canvas显示尺寸
+ * @param {number} wrapperSize - 外层容器尺寸
  */
-function drawLabels(ctx, cx, cy, maxR, angles, scores, displaySize) {
-  const n = RADAR_DIMENSIONS.length;
-  const labelR = maxR + 48;
-  
-  ctx.textBaseline = 'middle';
+function createLabelOverlay(containerId, scores, cx, cy, maxR, angles, canvasSize, wrapperSize) {
+  const wrapper = document.getElementById(containerId);
+  if (!wrapper) return;
 
+  // 移除旧浮层
+  const old = wrapper.querySelector('.radar-label-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'radar-label-overlay';
+  overlay.style.cssText = `position:absolute;top:0;left:0;width:${wrapperSize}px;height:${wrapperSize}px;pointer-events:none;`;
+
+  // Canvas在wrapper中居中偏移量
+  const offsetX = (wrapperSize - canvasSize) / 2;
+  const offsetY = (wrapperSize - canvasSize) / 2;
+
+  // 标签到轴末端的额外距离（像素），给足空间
+  const labelGap = 14;
+  // 分数标签偏移（沿轴方向，紧贴数据点外侧）
+  const scoreGap = 18;
+
+  const subLabels = {
+    'return_strength': 'Return Strength',
+    'return_quality': 'Return Quality',
+    'reputation_sensitivity': 'Reputation Risk',
+    'leverage_control': 'Leverage Ctrl',
+    'auto_settlement': 'Auto Settlement',
+    'profit_margin': 'Profit Margin',
+    'lifecycle_visibility': 'Lifecycle',
+    'volatility_control': 'Volatility Ctrl',
+    'cashflow_reliability': 'Cashflow'
+  };
+
+  const n = RADAR_DIMENSIONS.length;
   for (let i = 0; i < n; i++) {
     const dim = RADAR_DIMENSIONS[i];
     const angle = angles[i];
-    const lx = cx + labelR * Math.cos(angle);
-    const ly = cy + labelR * Math.sin(angle);
+    const score = scores[dim.key] || 0;
+    const scoreRatio = score / 10;
 
-    // 根据角度决定文字对齐方式
     const cosA = Math.cos(angle);
-    if (cosA > 0.3) ctx.textAlign = 'left';
-    else if (cosA < -0.3) ctx.textAlign = 'right';
-    else ctx.textAlign = 'center';
+    const sinA = Math.sin(angle);
 
-    // 标签背景
-    const textW = ctx.measureText(dim.label).width + 8;
-    const bgX = ctx.textAlign === 'left' ? lx - 4 :
-                ctx.textAlign === 'right' ? lx - textW + 4 :
-                lx - textW / 2;
-    
-    ctx.font = 'bold 11px "PingFang SC", "Microsoft YaHei", sans-serif';
-    ctx.fillStyle = dim.color;
-    ctx.fillText(dim.label, lx, ly);
+    // ---- 维度标签（在轴末端外侧）----
+    const labelR = maxR + labelGap;
+    // 在Canvas坐标系中的位置
+    const lxCanvas = cx + labelR * cosA;
+    const lyCanvas = cy + labelR * sinA;
+    // 转换到wrapper坐标系
+    const lx = lxCanvas + offsetX;
+    const ly = lyCanvas + offsetY;
 
-    // 英文副标题（象限标识）
-    const subLabels = {
-      'return_strength': 'Return Strength',
-      'return_quality': 'Return Quality',
-      'reputation_sensitivity': 'Reputation Risk',
-      'leverage_control': 'Leverage Control',
-      'auto_settlement': 'Auto Settlement',
-      'profit_margin': 'Profit Margin',
-      'lifecycle_visibility': 'Lifecycle',
-      'volatility_control': 'Volatility Ctrl',
-      'cashflow_reliability': 'Cashflow'
-    };
+    // 水平对齐：右侧→左对齐，左侧→右对齐，中间→居中
+    let hAlign, transformX;
+    if (cosA > 0.25) { hAlign = 'left'; transformX = '0%'; }
+    else if (cosA < -0.25) { hAlign = 'right'; transformX = '-100%'; }
+    else { hAlign = 'center'; transformX = '-50%'; }
+
+    // 垂直对齐：上方→底部对齐，下方→顶部对齐，中间→居中
+    let transformY;
+    if (sinA < -0.25) transformY = '-100%';
+    else if (sinA > 0.25) transformY = '0%';
+    else transformY = '-50%';
+
+    const labelDiv = document.createElement('div');
+    labelDiv.style.cssText = `
+      position:absolute;
+      left:${lx}px;
+      top:${ly}px;
+      transform:translate(${transformX},${transformY});
+      text-align:${hAlign};
+      line-height:1.3;
+      max-width:90px;
+    `;
+    labelDiv.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:${dim.color};white-space:nowrap;">${dim.label}</div>
+      <div style="font-size:9px;color:#999;white-space:nowrap;">${subLabels[dim.key] || ''}</div>
+    `;
+    overlay.appendChild(labelDiv);
+
+    // ---- 分数标签（紧贴数据点外侧）----
+    const scoreR = maxR * scoreRatio + scoreGap;
+    const sxCanvas = cx + scoreR * cosA;
+    const syCanvas = cy + scoreR * sinA;
+    const sx = sxCanvas + offsetX;
+    const sy = syCanvas + offsetY;
+
+    const scoreDiv = document.createElement('div');
+    scoreDiv.style.cssText = `
+      position:absolute;
+      left:${sx}px;
+      top:${sy}px;
+      transform:translate(-50%,-50%);
+      font-size:10px;
+      font-weight:700;
+      color:${dim.color};
+      background:rgba(255,255,255,0.85);
+      border-radius:3px;
+      padding:1px 3px;
+      line-height:1;
+      white-space:nowrap;
+    `;
+    scoreDiv.textContent = score.toFixed(1);
+    overlay.appendChild(scoreDiv);
   }
+
+  wrapper.appendChild(overlay);
 }
 
-// ==================== 象限标签渲染 ====================
-
-/**
- * 在Canvas上绘制四象限大标签
- */
-function drawQuadrantLabels(ctx, cx, cy, maxR) {
-  const r = maxR * 1.35;
-  const labels = [
-    { text: '回报 Return', x: cx + r * 0.7, y: cy - r * 0.5, color: '#2563EB' },
-    { text: '管控够不够', x: cx + r * 0.7, y: cy + r * 0.5, color: '#7C3AED' },
-    { text: '收益够不够', x: cx - r * 0.7, y: cy + r * 0.5, color: '#059669' },
-    { text: '风险 Risk', x: cx - r * 0.7, y: cy - r * 0.5, color: '#DC2626' }
-  ];
-
-  labels.forEach(({ text, x, y, color }) => {
-    ctx.font = 'bold 12px "PingFang SC", "Microsoft YaHei", sans-serif';
-    ctx.fillStyle = color;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.globalAlpha = 0.7;
-    ctx.fillText(text, x, y);
-    ctx.globalAlpha = 1;
-  });
-}
+// （drawQuadrantLabels 已迁移到 HTML 浮层，此函数保留为空壳以兼容旧调用）
+function drawQuadrantLabels(ctx, cx, cy, maxR) {}
 
 
 // ==================== HTML 生成（含 Canvas + 图例）====================
@@ -676,24 +713,25 @@ function generateRadarChartHTML(scoring, volatilityData, mainCategory, canvasId 
         <!-- 雷达图主体 -->
         <div class="flex flex-col lg:flex-row gap-6 items-start">
           
-          <!-- Canvas 区域 -->
+          <!-- Canvas 区域：外层容器 560px，Canvas本体 360px 居中，HTML浮层标签覆盖 -->
           <div class="flex-shrink-0 mx-auto lg:mx-0">
-            <div class="relative" style="width:420px;height:420px">
-              <canvas id="${canvasId}" style="display:block"></canvas>
-              <!-- 四象限角落标签 -->
-              <div class="absolute top-2 right-8 text-right">
-                <div class="text-xs font-bold text-blue-600">回报</div>
-                <div class="text-xs text-blue-400">Return</div>
+            <div id="${canvasId}-wrapper" class="relative" style="width:560px;height:560px;">
+              <!-- Canvas 居中放置 -->
+              <canvas id="${canvasId}" style="display:block;position:absolute;top:100px;left:100px;"></canvas>
+              <!-- 象限角标（固定在四角内侧）-->
+              <div style="position:absolute;top:6px;right:10px;text-align:right;">
+                <div style="font-size:11px;font-weight:700;color:#2563EB;">回报</div>
+                <div style="font-size:10px;color:#60A5FA;">Return</div>
               </div>
-              <div class="absolute bottom-2 right-8 text-right">
-                <div class="text-xs font-bold text-purple-600">管控够不够</div>
+              <div style="position:absolute;bottom:6px;right:10px;text-align:right;">
+                <div style="font-size:11px;font-weight:700;color:#7C3AED;">管控够不够</div>
               </div>
-              <div class="absolute bottom-2 left-8">
-                <div class="text-xs font-bold text-green-600">收益够不够</div>
+              <div style="position:absolute;bottom:6px;left:10px;">
+                <div style="font-size:11px;font-weight:700;color:#059669;">收益够不够</div>
               </div>
-              <div class="absolute top-2 left-8">
-                <div class="text-xs font-bold text-red-600">风险</div>
-                <div class="text-xs text-red-400">Risk</div>
+              <div style="position:absolute;top:6px;left:10px;">
+                <div style="font-size:11px;font-weight:700;color:#DC2626;">风险</div>
+                <div style="font-size:10px;color:#FCA5A5;">Risk</div>
               </div>
             </div>
           </div>
@@ -801,7 +839,7 @@ function getAssetGrade(score) {
 }
 
 /**
- * 渲染雷达图到页面（调用此函数触发Canvas绘制）
+ * 渲染雷达图到页面（调用此函数触发Canvas绘制 + HTML标签浮层）
  * @param {string} canvasId
  * @param {Object} scoring
  * @param {Object} volatilityData
@@ -809,24 +847,16 @@ function getAssetGrade(score) {
  */
 function renderRadarChart(canvasId, scoring, volatilityData, mainCategory) {
   const scores = computeRadarScores(scoring, volatilityData, mainCategory);
-  
-  // 延迟一帧确保 Canvas 已挂载到 DOM
+  const canvasSize = 360;
+  const wrapperSize = 560;
+
   requestAnimationFrame(() => {
-    drawAssetRadarChart(canvasId, scores, { size: 420 });
-    
-    // 在Canvas内部补绘象限大标签
-    const canvas = document.getElementById(canvasId);
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      const dpr = window.devicePixelRatio || 1;
-      const cx = 420 / 2;
-      const cy = 420 / 2;
-      const maxR = 420 * 0.36;
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      // 恢复scale会影响坐标，直接在原ctx上用像素坐标
-      ctx.restore();
-    }
+    const info = drawAssetRadarChart(canvasId, scores, { size: canvasSize });
+    if (!info) return;
+    // Canvas在wrapper中的偏移 = (wrapperSize - canvasSize) / 2 = 100
+    const { cx, cy, maxR, angles } = info;
+    const wrapperId = canvasId + '-wrapper';
+    createLabelOverlay(wrapperId, scores, cx, cy, maxR, angles, canvasSize, wrapperSize);
   });
 }
 
@@ -863,10 +893,16 @@ window.insertRadarChart = function(containerId, radarData, scoreDetails) {
   // 生成HTML并插入
   container.innerHTML = generateRadarChartHTML(scoring, volatilityData, mainCategory, canvasId);
 
-  // 触发Canvas绘制（需等待DOM更新）
+  // 触发Canvas绘制 + HTML标签浮层
+  const canvasSize = 360;
+  const wrapperSize = 560;
   requestAnimationFrame(() => {
     const scores = computeRadarScores(scoring, volatilityData, mainCategory);
-    drawAssetRadarChart(canvasId, scores, { size: 420 });
+    const info = drawAssetRadarChart(canvasId, scores, { size: canvasSize });
+    if (!info) return;
+    const { cx, cy, maxR, angles } = info;
+    const wrapperId = canvasId + '-wrapper';
+    createLabelOverlay(wrapperId, scores, cx, cy, maxR, angles, canvasSize, wrapperSize);
   });
 };
 
