@@ -451,21 +451,34 @@ app.post('/projects/:id/listing-info', async (c) => {
       'file_directors_list', 'file_board_resolution', 'file_email_authorization'
     ]
     
+    // 将字段值序列化为 DB 安全字符串（file_* 字段去掉 base64 内容，防止 SQLITE_TOOBIG）
+    const safeValue = (fieldName: string, value: any): any => {
+      if (value === undefined || value === null || value === '') return null
+      if (fieldName.startsWith('file_')) {
+        // 解析文件元数据对象
+        let meta: any = value
+        if (typeof value === 'string') {
+          try { meta = JSON.parse(value) } catch { return value }
+        }
+        if (typeof meta === 'object' && meta !== null) {
+          // 只保留元数据，丢弃 base64 内容
+          return JSON.stringify({
+            file_name: meta.file_name || '',
+            file_size: meta.file_size || 0,
+            file_type: meta.file_type || '',
+            uploaded_at: meta.uploaded_at || new Date().toISOString()
+          })
+        }
+        return value
+      }
+      if (typeof value === 'object') return JSON.stringify(value)
+      return value
+    }
+
     if (existing) {
       // 更新现有记录
       const setClause = fields.map(f => `${f} = ?`).join(', ')
-      // 确保所有值都是原始类型或null，对象类型转换为JSON字符串
-      const values = fields.map(f => {
-        const value = body[f]
-        if (value === undefined || value === null || value === '') {
-          return null
-        }
-        // 如果是对象，转换为JSON字符串
-        if (typeof value === 'object') {
-          return JSON.stringify(value)
-        }
-        return value
-      })
+      const values = fields.map(f => safeValue(f, body[f]))
       
       await db.prepare(`
         UPDATE listing_info 
@@ -479,18 +492,7 @@ app.post('/projects/:id/listing-info', async (c) => {
       // 插入新记录
       const columns = ['project_id', ...fields, 'is_submitted', 'submitted_at']
       const placeholders = columns.map(() => '?').join(', ')
-      // 确保所有值都是原始类型或null，对象类型转换为JSON字符串
-      const values = [projectId, ...fields.map(f => {
-        const value = body[f]
-        if (value === undefined || value === null || value === '') {
-          return null
-        }
-        // 如果是对象，转换为JSON字符串
-        if (typeof value === 'object') {
-          return JSON.stringify(value)
-        }
-        return value
-      }), isSubmitted ? 1 : 0, isSubmitted ? now : null]
+      const values = [projectId, ...fields.map(f => safeValue(f, body[f])), isSubmitted ? 1 : 0, isSubmitted ? now : null]
       
       await db.prepare(`
         INSERT INTO listing_info (${columns.join(', ')})

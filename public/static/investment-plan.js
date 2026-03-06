@@ -1373,31 +1373,34 @@ window.markFormDirty = function() {
 // 文件上传处理函数
 // ==========================================
 
-// 模拟文件上传到CDN
+// 文件处理：读取 base64 供本地预览，但存储时只保留元数据（避免 SQLITE_TOOBIG）
 async function uploadFileToCDN(file) {
-  // 将文件转换为base64编码（用于本地开发）
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
     reader.onload = function(e) {
-      const base64Data = e.target.result; // data:image/png;base64,iVBORw0KG...
-      
-      // 创建一个包含base64数据的对象
+      const base64Data = e.target.result; // 仅用于本地预览，不写入数据库
       resolve({
         file_name: file.name,
-        file_url: base64Data, // 使用base64数据URL代替远程URL
+        file_url: base64Data,   // 完整 base64，仅存内存供预览
         file_size: file.size,
         file_type: file.type,
         uploaded_at: new Date().toISOString()
       });
     };
-    
-    reader.onerror = function(error) {
-      reject(error);
-    };
-    
-    // 读取文件为base64数据URL
+    reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+}
+
+// 生成用于数据库存储的文件元数据（不含 base64，避免超出 D1 字段大小限制）
+function getFileMetaForStorage(fileInfo) {
+  if (!fileInfo) return null;
+  return JSON.stringify({
+    file_name: fileInfo.file_name || '',
+    file_size: fileInfo.file_size || 0,
+    file_type: fileInfo.file_type || '',
+    uploaded_at: fileInfo.uploaded_at || new Date().toISOString()
+    // 注意：file_url（base64）不写入数据库
   });
 }
 
@@ -1665,13 +1668,12 @@ function collectFormData() {
     }
   }
   
-  // 添加已上传的文件信息
+  // 添加已上传的文件信息（只存元数据，不含 base64 内容，防止 SQLITE_TOOBIG）
   if (window.UPLOADED_FILES) {
     Object.keys(window.UPLOADED_FILES).forEach(fieldName => {
       const fileInfo = window.UPLOADED_FILES[fieldName];
-      // 确保文件信息是对象，然后转换为JSON字符串
       if (fileInfo && typeof fileInfo === 'object') {
-        data[fieldName] = JSON.stringify(fileInfo);
+        data[fieldName] = getFileMetaForStorage(fileInfo);
       }
     });
   }
@@ -1712,11 +1714,11 @@ function fillFormData(data) {
     if (key.startsWith('file_') && data[key]) {
       try {
         const fileInfo = typeof data[key] === 'string' ? JSON.parse(data[key]) : data[key];
-        if (fileInfo && fileInfo.file_url) {
-          // 恢复文件信息
+        if (fileInfo && fileInfo.file_name) {
+          // 恢复文件元数据到内存（file_url 可能为空，是正常的）
           window.UPLOADED_FILES[key] = fileInfo;
           
-          // 显示已上传文件
+          // 显示已上传文件状态
           const previewDiv = document.getElementById(`${key}_preview`);
           const filenameSpan = document.getElementById(`${key}_filename`);
           const filesizeSpan = document.getElementById(`${key}_filesize`);
@@ -1734,7 +1736,8 @@ function fillFormData(data) {
             }
           }
           
-          if (urlDisplayDiv && urlLink) {
+          // 有 file_url（base64）时才显示"查看"链接
+          if (urlDisplayDiv && urlLink && fileInfo.file_url) {
             urlDisplayDiv.classList.remove('hidden');
             urlLink.href = fileInfo.file_url;
           }
