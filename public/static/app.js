@@ -1401,6 +1401,61 @@ window.viewFullListingInfo = async function(projectId) {
     return '';
   };
   
+  // 辅助函数：渲染销售收款账户表格
+  const renderSalesAccounts = (data) => {
+    try {
+      const accs = data ? (typeof data === 'string' ? JSON.parse(data) : data) : [];
+      if (!Array.isArray(accs) || accs.length === 0) {
+        return '<p class="text-gray-500 text-sm">暂无销售收款账户信息</p>';
+      }
+      let rows = accs.map((a, i) => {
+        const cls = a.has_access === '是' ? 'text-green-600 font-semibold' : 'text-gray-600';
+        return '<tr class="hover:bg-teal-50">'
+          + '<td class="border border-teal-200 px-3 py-2 text-center text-gray-500">' + (i+1) + '</td>'
+          + '<td class="border border-teal-200 px-3 py-2">' + (a.platform || '-') + '</td>'
+          + '<td class="border border-teal-200 px-3 py-2">' + (a.account_info || '-') + '</td>'
+          + '<td class="border border-teal-200 px-3 py-2 ' + cls + '">' + (a.has_access || '否') + '</td>'
+          + '</tr>';
+      }).join('');
+      return '<div class="overflow-x-auto">'
+        + '<table class="w-full text-sm border-collapse">'
+        + '<thead><tr class="bg-teal-100">'
+        + '<th class="border border-teal-200 px-3 py-2 text-left w-10">序号</th>'
+        + '<th class="border border-teal-200 px-3 py-2 text-left">账号类别/OTA类型平台</th>'
+        + '<th class="border border-teal-200 px-3 py-2 text-left">账号情况</th>'
+        + '<th class="border border-teal-200 px-3 py-2 text-left w-32">是否已为滴灌通开通</th>'
+        + '</tr></thead>'
+        + '<tbody>' + rows + '</tbody>'
+        + '</table></div>';
+    } catch(e) { return '<p class="text-gray-500 text-sm">数据解析失败</p>'; }
+  };
+
+  // 辅助函数：渲染营销推广账户表格
+  const renderMarketingAccounts = (data) => {
+    try {
+      const accs = data ? (typeof data === 'string' ? JSON.parse(data) : data) : [];
+      if (!Array.isArray(accs) || accs.length === 0) {
+        return '<p class="text-gray-500 text-sm">暂无营销推广账户信息</p>';
+      }
+      let rows = accs.map((a, i) => {
+        return '<tr class="hover:bg-orange-50">'
+          + '<td class="border border-orange-200 px-3 py-2 text-center text-gray-500">' + (i+1) + '</td>'
+          + '<td class="border border-orange-200 px-3 py-2">' + (a.name || '-') + '</td>'
+          + '<td class="border border-orange-200 px-3 py-2 font-mono text-sm">' + (a.account_id || '-') + '</td>'
+          + '</tr>';
+      }).join('');
+      return '<div class="overflow-x-auto">'
+        + '<table class="w-full text-sm border-collapse">'
+        + '<thead><tr class="bg-orange-100">'
+        + '<th class="border border-orange-200 px-3 py-2 text-left w-10">序号</th>'
+        + '<th class="border border-orange-200 px-3 py-2 text-left">账户名称</th>'
+        + '<th class="border border-orange-200 px-3 py-2 text-left">账户ID</th>'
+        + '</tr></thead>'
+        + '<tbody>' + rows + '</tbody>'
+        + '</table></div>';
+    } catch(e) { return '<p class="text-gray-500 text-sm">数据解析失败</p>'; }
+  };
+
   try {
     // 加载挂牌信息
     const response = await axios.get(`/api/investment/projects/${projectId}/listing-info`, {
@@ -1752,33 +1807,7 @@ window.viewFullListingInfo = async function(projectId) {
               <i class="fas fa-store mr-2 text-teal-600"></i>
               9. 销售收款账户信息
             </h3>
-            ${(() => {
-              try {
-                const accs = listingData.sales_accounts
-                  ? (typeof listingData.sales_accounts === 'string' ? JSON.parse(listingData.sales_accounts) : listingData.sales_accounts)
-                  : [];
-                if (!Array.isArray(accs) || accs.length === 0) {
-                  return '<p class="text-gray-500 text-sm">暂无销售收款账户信息</p>';
-                }
-                return \`<div class="overflow-x-auto">
-                  <table class="w-full text-sm border-collapse">
-                    <thead><tr class="bg-teal-100">
-                      <th class="border border-teal-200 px-3 py-2 text-left w-10">序号</th>
-                      <th class="border border-teal-200 px-3 py-2 text-left">账号类别/OTA类型平台</th>
-                      <th class="border border-teal-200 px-3 py-2 text-left">账号情况</th>
-                      <th class="border border-teal-200 px-3 py-2 text-left w-32">是否已为滴灌通开通</th>
-                    </tr></thead>
-                    <tbody>\${accs.map((a, i) => \`<tr class="hover:bg-teal-50">
-                      <td class="border border-teal-200 px-3 py-2 text-center text-gray-500">\${i+1}</td>
-                      <td class="border border-teal-200 px-3 py-2">\${a.platform || '-'}</td>
-                      <td class="border border-teal-200 px-3 py-2">\${a.account_info || '-'}</td>
-                      <td class="border border-teal-200 px-3 py-2 \${a.has_access === '是' ? 'text-green-600 font-semibold' : 'text-gray-600'}">\${a.has_access || '否'}</td>
-                    </tr>\`).join('')}
-                    </tbody>
-                  </table>
-                </div>\`;
-              } catch(e) { return '<p class="text-gray-500 text-sm">数据解析失败</p>'; }
-            })()}
+            ${renderSalesAccounts(listingData.sales_accounts)}
           </div>
 
           <!-- 10. 营销推广账户信息 -->
@@ -1787,31 +1816,7 @@ window.viewFullListingInfo = async function(projectId) {
               <i class="fas fa-bullhorn mr-2 text-orange-600"></i>
               10. 营销推广账户信息
             </h3>
-            ${(() => {
-              try {
-                const accs = listingData.marketing_accounts
-                  ? (typeof listingData.marketing_accounts === 'string' ? JSON.parse(listingData.marketing_accounts) : listingData.marketing_accounts)
-                  : [];
-                if (!Array.isArray(accs) || accs.length === 0) {
-                  return '<p class="text-gray-500 text-sm">暂无营销推广账户信息</p>';
-                }
-                return \`<div class="overflow-x-auto">
-                  <table class="w-full text-sm border-collapse">
-                    <thead><tr class="bg-orange-100">
-                      <th class="border border-orange-200 px-3 py-2 text-left w-10">序号</th>
-                      <th class="border border-orange-200 px-3 py-2 text-left">账户名称</th>
-                      <th class="border border-orange-200 px-3 py-2 text-left">账户ID</th>
-                    </tr></thead>
-                    <tbody>\${accs.map((a, i) => \`<tr class="hover:bg-orange-50">
-                      <td class="border border-orange-200 px-3 py-2 text-center text-gray-500">\${i+1}</td>
-                      <td class="border border-orange-200 px-3 py-2">\${a.name || '-'}</td>
-                      <td class="border border-orange-200 px-3 py-2 font-mono text-sm">\${a.account_id || '-'}</td>
-                    </tr>\`).join('')}
-                    </tbody>
-                  </table>
-                </div>\`;
-              } catch(e) { return '<p class="text-gray-500 text-sm">数据解析失败</p>'; }
-            })()}
+            ${renderMarketingAccounts(listingData.marketing_accounts)}
           </div>
 
           <!-- 提交信息 -->
