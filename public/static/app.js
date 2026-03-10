@@ -1711,12 +1711,16 @@ window.viewFullListingInfo = async function(projectId) {
         </div>
         
         <div class="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-between">
-          <div class="flex gap-3">
-            <button onclick="exportListingToExcel(${projectId})" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+          <div class="flex gap-3 flex-wrap">
+            <button onclick="exportListingToExcel(${projectId})" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm">
               <i class="fas fa-file-excel"></i>
-              导出Excel
+              导出挂牌信息Excel
             </button>
-            <button onclick="downloadAllFiles(${projectId})" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+            <button onclick="exportContractFields(${projectId})" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 text-sm">
+              <i class="fas fa-file-contract"></i>
+              导出协议字段CSV
+            </button>
+            <button onclick="downloadAllFiles(${projectId})" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm">
               <i class="fas fa-download"></i>
               下载所有文件
             </button>
@@ -1819,6 +1823,53 @@ window.exportListingToExcel = async function(projectId) {
   } catch (error) {
     console.error('导出Excel失败:', error);
     showAlert('导出失败: ' + error.message, 'error');
+  }
+};
+
+// 导出协议字段（供合同生成使用）
+window.exportContractFields = async function(projectId) {
+  try {
+    showAlert('正在生成协议字段CSV...', 'info');
+
+    const response = await axios.get(`/api/investment/projects/${projectId}/contract-fields`, {
+      headers: { 'Authorization': `Bearer ${STATE.token}` }
+    });
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || '导出失败');
+    }
+
+    const fields = response.data.data;
+    const filename = response.data.filename || `协议字段_${projectId}_${new Date().toISOString().split('T')[0]}.csv`;
+
+    // 生成 CSV（两列：字段名, 字段值）
+    const BOM = '\uFEFF'; // UTF-8 BOM，确保 Excel 正确识别中文
+    const rows = [['字段名', '字段值']];
+    for (const [key, val] of Object.entries(fields)) {
+      // 值中若含双引号、逗号、换行，需用双引号包裹并转义内部双引号
+      const escape = (v) => {
+        const s = v == null ? '' : String(v);
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      rows.push([escape(key), escape(val)]);
+    }
+    const csvContent = BOM + rows.map(r => r.join(',')).join('\n');
+
+    // 触发下载
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showAlert('协议字段CSV导出成功！', 'success');
+  } catch (error) {
+    console.error('导出协议字段失败:', error);
+    showAlert('导出失败: ' + (error.response?.data?.error || error.message), 'error');
   }
 };
 
