@@ -1690,7 +1690,130 @@ window.viewFullListingInfo = async function(projectId) {
               ${renderFileLink(listingData.file_email_authorization, '📄 电邮申请说明+公章+授权人/法人签名')}
             </div>
           </div>
-          
+
+          <!-- 8. 联营协议签署信息 -->
+          <div class="border-l-4 border-indigo-500 pl-6 bg-indigo-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-file-signature mr-2 text-indigo-600"></i>
+              8. 联营协议签署信息
+            </h3>
+            <p class="text-sm text-gray-600 mb-3">以下信息用于生成和签署联营协议</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">融资方住所</div>
+                <div class="font-semibold text-gray-900">${listingData.company_address || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">融资方经营业务</div>
+                <div class="font-semibold text-gray-900">${listingData.business_activity || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded col-span-2">
+                <div class="text-sm text-gray-600">融资方营销推广账户</div>
+                <div class="font-semibold text-gray-900">${listingData.marketing_platform || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">融资方签署人姓名</div>
+                <div class="font-semibold text-gray-900">${listingData.signer_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">融资方签署人职务</div>
+                <div class="font-semibold text-gray-900">${listingData.signer_title || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">融资方联系人信息来源</div>
+                <div class="font-semibold text-gray-900">${listingData.contact_source || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">融资方联系人微信号</div>
+                <div class="font-semibold text-gray-900">${listingData.contact_wechat || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">对公账户-户名</div>
+                <div class="font-semibold text-gray-900">${listingData.bank_account_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">对公账户-账号</div>
+                <div class="font-semibold text-gray-900">${listingData.bank_account_number || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">对公账户-开户行</div>
+                <div class="font-semibold text-gray-900">${listingData.bank_name || '-'}</div>
+              </div>
+              <div class="bg-white p-3 rounded">
+                <div class="text-sm text-gray-600">对公账户-开户支行</div>
+                <div class="font-semibold text-gray-900">${listingData.bank_branch || '-'}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 9. 销售收款账户信息 -->
+          <div class="border-l-4 border-teal-500 pl-6 bg-teal-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-store mr-2 text-teal-600"></i>
+              9. 销售收款账户信息
+            </h3>
+            ${(() => {
+              try {
+                const accs = listingData.sales_accounts
+                  ? (typeof listingData.sales_accounts === 'string' ? JSON.parse(listingData.sales_accounts) : listingData.sales_accounts)
+                  : [];
+                if (!Array.isArray(accs) || accs.length === 0) {
+                  return '<p class="text-gray-500 text-sm">暂无销售收款账户信息</p>';
+                }
+                return \`<div class="overflow-x-auto">
+                  <table class="w-full text-sm border-collapse">
+                    <thead><tr class="bg-teal-100">
+                      <th class="border border-teal-200 px-3 py-2 text-left w-10">序号</th>
+                      <th class="border border-teal-200 px-3 py-2 text-left">账号类别/OTA类型平台</th>
+                      <th class="border border-teal-200 px-3 py-2 text-left">账号情况</th>
+                      <th class="border border-teal-200 px-3 py-2 text-left w-32">是否已为滴灌通开通</th>
+                    </tr></thead>
+                    <tbody>\${accs.map((a, i) => \`<tr class="hover:bg-teal-50">
+                      <td class="border border-teal-200 px-3 py-2 text-center text-gray-500">\${i+1}</td>
+                      <td class="border border-teal-200 px-3 py-2">\${a.platform || '-'}</td>
+                      <td class="border border-teal-200 px-3 py-2">\${a.account_info || '-'}</td>
+                      <td class="border border-teal-200 px-3 py-2 \${a.has_access === '是' ? 'text-green-600 font-semibold' : 'text-gray-600'}">\${a.has_access || '否'}</td>
+                    </tr>\`).join('')}
+                    </tbody>
+                  </table>
+                </div>\`;
+              } catch(e) { return '<p class="text-gray-500 text-sm">数据解析失败</p>'; }
+            })()}
+          </div>
+
+          <!-- 10. 营销推广账户信息 -->
+          <div class="border-l-4 border-orange-500 pl-6 bg-orange-50 rounded-r-lg p-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+              <i class="fas fa-bullhorn mr-2 text-orange-600"></i>
+              10. 营销推广账户信息
+            </h3>
+            ${(() => {
+              try {
+                const accs = listingData.marketing_accounts
+                  ? (typeof listingData.marketing_accounts === 'string' ? JSON.parse(listingData.marketing_accounts) : listingData.marketing_accounts)
+                  : [];
+                if (!Array.isArray(accs) || accs.length === 0) {
+                  return '<p class="text-gray-500 text-sm">暂无营销推广账户信息</p>';
+                }
+                return \`<div class="overflow-x-auto">
+                  <table class="w-full text-sm border-collapse">
+                    <thead><tr class="bg-orange-100">
+                      <th class="border border-orange-200 px-3 py-2 text-left w-10">序号</th>
+                      <th class="border border-orange-200 px-3 py-2 text-left">账户名称</th>
+                      <th class="border border-orange-200 px-3 py-2 text-left">账户ID</th>
+                    </tr></thead>
+                    <tbody>\${accs.map((a, i) => \`<tr class="hover:bg-orange-50">
+                      <td class="border border-orange-200 px-3 py-2 text-center text-gray-500">\${i+1}</td>
+                      <td class="border border-orange-200 px-3 py-2">\${a.name || '-'}</td>
+                      <td class="border border-orange-200 px-3 py-2 font-mono text-sm">\${a.account_id || '-'}</td>
+                    </tr>\`).join('')}
+                    </tbody>
+                  </table>
+                </div>\`;
+              } catch(e) { return '<p class="text-gray-500 text-sm">数据解析失败</p>'; }
+            })()}
+          </div>
+
           <!-- 提交信息 -->
           <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
             <div class="flex items-center justify-between">
