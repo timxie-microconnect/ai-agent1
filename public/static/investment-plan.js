@@ -1156,13 +1156,32 @@ const LISTING_FORM_STRUCTURE = [
       {"name": "file_board_resolution", "label": "📄 董事会书面决议授权+公章", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "授权在MCEX融资，请使用模板并通过授权人电邮申请"},
       {"name": "file_email_authorization", "label": "📄 电邮申请说明+公章+授权人/法人签名", "type": "file", "accept": ".pdf,.jpg,.jpeg,.png", "required": true, "note": "说明透过电邮进行挂牌+RBO设立申请"}
     ]
+  },
+  {
+    "section": "联营协议签署信息",
+    "description": "以下信息用于生成和签署联营协议",
+    "fields": [
+      {"name": "company_address", "label": "融资方住所", "type": "text", "placeholder": "请输入企业住所地址", "required": true},
+      {"name": "business_activity", "label": "融资方经营业务", "type": "text", "placeholder": "于抖音平台销售【】品牌相关商品", "required": true},
+      {"name": "marketing_platform", "label": "融资方营销推广账户", "type": "text", "placeholder": "请输入抖音账号或店铺名称", "required": true},
+      {"name": "signer_name", "label": "融资方签署人姓名", "type": "text", "placeholder": "请输入签署人姓名", "required": true},
+      {"name": "signer_title", "label": "融资方签署人职务", "type": "text", "placeholder": "如：法定代表人、总经理等", "required": true},
+      {"name": "contact_source", "label": "融资方联系人信息来源", "type": "select", "options": ["法定代表人", "实际控制人", "授权代表", "其他"], "required": true},
+      {"name": "contact_wechat", "label": "融资方联系人微信号", "type": "text", "placeholder": "请输入微信号", "required": true},
+      {"name": "bank_account_name", "label": "对公账户-户名", "type": "text", "placeholder": "通常与企业名称一致", "required": true},
+      {"name": "bank_account_number", "label": "对公账户-账号", "type": "text", "placeholder": "请输入银行账号", "required": true},
+      {"name": "bank_name", "label": "对公账户-开户行", "type": "text", "placeholder": "如：中国工商银行", "required": true},
+      {"name": "bank_branch", "label": "对公账户-开户支行", "type": "text", "placeholder": "具体支行名称", "required": true}
+    ]
   }
 ];
 
 // 全局状态
 let LISTING_STATE = {
   listingData: {},
-  isDirty: false
+  isDirty: false,
+  salesAccounts: [],      // 销售收款账户列表
+  marketingAccounts: []   // 营销推广账户列表
 };
 
 // ==========================================
@@ -1184,6 +1203,59 @@ function renderListingInfoForm() {
       
       <form id="listingForm" class="space-y-8">
         ${renderFormSections()}
+        
+        <!-- 9. 销售收款账户信息 -->
+        <div class="border-l-4 border-purple-500 pl-6 py-4 bg-purple-50 rounded-r-lg">
+          <h3 class="text-xl font-bold text-gray-800 mb-1">销售收款账户信息</h3>
+          <p class="text-sm text-gray-600 mb-4">
+            <i class="fas fa-info-circle mr-1"></i>
+            请填写融资方为滴灌通开通权限的销售收款账户相关信息，应开通权限包括但不限于滴灌通可查看订单收入汇总、订单收入明细、结算提现记录（不含个人信息）。此表为非必填项。
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+              <thead>
+                <tr class="bg-purple-100">
+                  <th class="border border-purple-200 px-3 py-2 text-left w-12">序号</th>
+                  <th class="border border-purple-200 px-3 py-2 text-left">账号类别/OTA 类型平台</th>
+                  <th class="border border-purple-200 px-3 py-2 text-left">账号情况</th>
+                  <th class="border border-purple-200 px-3 py-2 text-left w-32">是否已为滴灌通开通</th>
+                  <th class="border border-purple-200 px-3 py-2 text-left w-20">操作</th>
+                </tr>
+              </thead>
+              <tbody id="salesAccountsBody">
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onclick="addSalesAccount()" class="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
+            <i class="fas fa-plus mr-1"></i>添加销售收款账户
+          </button>
+        </div>
+
+        <!-- 10. 营销推广账户信息 -->
+        <div class="border-l-4 border-purple-500 pl-6 py-4 bg-purple-50 rounded-r-lg">
+          <h3 class="text-xl font-bold text-gray-800 mb-1">营销推广账户信息</h3>
+          <p class="text-sm text-gray-600 mb-4">
+            <i class="fas fa-info-circle mr-1"></i>
+            请填写融资方通过指定投流代理商方于巨量引擎方舟开设的营销推广账号信息，可添加多个账户。此表为非必填项。
+          </p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+              <thead>
+                <tr class="bg-purple-100">
+                  <th class="border border-purple-200 px-3 py-2 text-left w-12">序号</th>
+                  <th class="border border-purple-200 px-3 py-2 text-left">账户名称</th>
+                  <th class="border border-purple-200 px-3 py-2 text-left">账户ID</th>
+                  <th class="border border-purple-200 px-3 py-2 text-left w-20">操作</th>
+                </tr>
+              </thead>
+              <tbody id="marketingAccountsBody">
+              </tbody>
+            </table>
+          </div>
+          <button type="button" onclick="addMarketingAccount()" class="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
+            <i class="fas fa-plus mr-1"></i>添加营销推广账户
+          </button>
+        </div>
         
         <!-- 表单操作按钮 -->
         <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 mt-8">
@@ -1677,6 +1749,16 @@ function collectFormData() {
       }
     });
   }
+
+  // 收集销售收款账户（JSON）
+  if (LISTING_STATE.salesAccounts && LISTING_STATE.salesAccounts.length > 0) {
+    data.sales_accounts = JSON.stringify(LISTING_STATE.salesAccounts);
+  }
+
+  // 收集营销推广账户（JSON）
+  if (LISTING_STATE.marketingAccounts && LISTING_STATE.marketingAccounts.length > 0) {
+    data.marketing_accounts = JSON.stringify(LISTING_STATE.marketingAccounts);
+  }
   
   console.log('收集的表单数据:', data);
   return data;
@@ -1758,4 +1840,117 @@ function fillFormData(data) {
       }
     }
   });
+
+  // 恢复销售收款账户
+  if (data.sales_accounts) {
+    try {
+      LISTING_STATE.salesAccounts = typeof data.sales_accounts === 'string'
+        ? JSON.parse(data.sales_accounts) : data.sales_accounts;
+      renderSalesAccounts();
+    } catch(e) { console.warn('恢复销售账户失败', e); }
+  }
+
+  // 恢复营销推广账户
+  if (data.marketing_accounts) {
+    try {
+      LISTING_STATE.marketingAccounts = typeof data.marketing_accounts === 'string'
+        ? JSON.parse(data.marketing_accounts) : data.marketing_accounts;
+      renderMarketingAccounts();
+    } catch(e) { console.warn('恢复营销账户失败', e); }
+  }
+}
+
+// ==========================================
+// 销售收款账户管理
+// ==========================================
+window.addSalesAccount = function() {
+  LISTING_STATE.salesAccounts.push({ platform: '', account_info: '', has_access: '否' });
+  renderSalesAccounts();
+};
+
+window.removeSalesAccount = function(index) {
+  LISTING_STATE.salesAccounts.splice(index, 1);
+  renderSalesAccounts();
+};
+
+window.updateSalesAccount = function(index, field, value) {
+  if (LISTING_STATE.salesAccounts[index]) {
+    LISTING_STATE.salesAccounts[index][field] = value;
+  }
+};
+
+function renderSalesAccounts() {
+  const tbody = document.getElementById('salesAccountsBody');
+  if (!tbody) return;
+  tbody.innerHTML = LISTING_STATE.salesAccounts.map((acc, i) => `
+    <tr>
+      <td class="border border-purple-200 px-3 py-2 text-center text-gray-500">${i + 1}</td>
+      <td class="border border-purple-200 px-2 py-1">
+        <input type="text" value="${acc.platform || ''}" placeholder="如：抖音小店"
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm"
+          onchange="updateSalesAccount(${i}, 'platform', this.value)">
+      </td>
+      <td class="border border-purple-200 px-2 py-1">
+        <input type="text" value="${acc.account_info || ''}" placeholder="账号ID或名称"
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm"
+          onchange="updateSalesAccount(${i}, 'account_info', this.value)">
+      </td>
+      <td class="border border-purple-200 px-2 py-1">
+        <select class="w-full px-2 py-1 border border-gray-200 rounded text-sm"
+          onchange="updateSalesAccount(${i}, 'has_access', this.value)">
+          <option value="否" ${acc.has_access === '否' ? 'selected' : ''}>否</option>
+          <option value="是" ${acc.has_access === '是' ? 'selected' : ''}>是</option>
+        </select>
+      </td>
+      <td class="border border-purple-200 px-2 py-1 text-center">
+        <button type="button" onclick="removeSalesAccount(${i})" class="text-red-500 hover:text-red-700 text-xs">
+          <i class="fas fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ==========================================
+// 营销推广账户管理
+// ==========================================
+window.addMarketingAccount = function() {
+  LISTING_STATE.marketingAccounts.push({ name: '', account_id: '' });
+  renderMarketingAccounts();
+};
+
+window.removeMarketingAccount = function(index) {
+  LISTING_STATE.marketingAccounts.splice(index, 1);
+  renderMarketingAccounts();
+};
+
+window.updateMarketingAccount = function(index, field, value) {
+  if (LISTING_STATE.marketingAccounts[index]) {
+    LISTING_STATE.marketingAccounts[index][field] = value;
+  }
+};
+
+function renderMarketingAccounts() {
+  const tbody = document.getElementById('marketingAccountsBody');
+  if (!tbody) return;
+  tbody.innerHTML = LISTING_STATE.marketingAccounts.map((acc, i) => `
+    <tr>
+      <td class="border border-purple-200 px-3 py-2 text-center text-gray-500">${i + 1}</td>
+      <td class="border border-purple-200 px-2 py-1">
+        <input type="text" value="${acc.name || ''}" placeholder="账户名称"
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm"
+          onchange="updateMarketingAccount(${i}, 'name', this.value)">
+      </td>
+      <td class="border border-purple-200 px-2 py-1">
+        <input type="text" value="${acc.account_id || ''}" placeholder="账户ID"
+          class="w-full px-2 py-1 border border-gray-200 rounded text-sm"
+          onchange="updateMarketingAccount(${i}, 'account_id', this.value)">
+      </td>
+      <td class="border border-purple-200 px-2 py-1 text-center">
+        <button type="button" onclick="removeMarketingAccount(${i})" class="text-red-500 hover:text-red-700 text-xs">
+          <i class="fas fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
 }

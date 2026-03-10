@@ -448,7 +448,13 @@ app.post('/projects/:id/listing-info', async (c) => {
       'file_beneficial_owner_id', 'file_beneficial_owner_address_proof',
       'file_condition_1_proof', 'file_condition_2_proof',
       'file_revenue_forecast',
-      'file_directors_list', 'file_board_resolution', 'file_email_authorization'
+      'file_directors_list', 'file_board_resolution', 'file_email_authorization',
+      // 8. 联营协议签署信息
+      'company_address', 'business_activity', 'marketing_platform',
+      'signer_name', 'signer_title', 'contact_source', 'contact_wechat',
+      'bank_account_name', 'bank_account_number', 'bank_name', 'bank_branch',
+      // 9. 销售收款账户 / 10. 营销推广账户（JSON字符串）
+      'sales_accounts', 'marketing_accounts'
     ]
     
     // 将字段值序列化为 DB 安全字符串（file_* 字段去掉 base64 内容，防止 SQLITE_TOOBIG）
@@ -695,8 +701,217 @@ app.get('/projects/:id/listing-info/export', async (c) => {
 })
 
 // ==========================================
-// 获取所有KYC文件下载链接
+// 导出协议字段（供管理员生成合同使用）
 // ==========================================
+app.get('/projects/:id/contract-fields', async (c) => {
+  try {
+    const projectId = c.req.param('id')
+    const db = c.env.DB
+
+    // 获取项目完整信息（含申请人填写的基础字段）
+    const project = await db.prepare(`
+      SELECT
+        submission_code, status, created_at,
+        company_name_a, company_name_b, credit_code_a, credit_code_b,
+        address_a, address_b,
+        contact_name, contact_phone, contact_email,
+        total_amount, batch_count, batch_amount,
+        first_amount, subsequent_amount,
+        roi_target, roi_recovery_days, roi_maintain_days,
+        profit_share, repayment_frequency, repayment_rules,
+        investment_amount, profit_share_ratio, payment_frequency,
+        daily_repayment, estimated_days, annual_rate, total_return_amount
+      FROM projects WHERE id = ?
+    `).bind(projectId).first()
+
+    if (!project) {
+      return c.json({ success: false, error: '项目不存在' }, 404)
+    }
+
+    // 获取挂牌主体信息
+    const listing = await db.prepare(
+      'SELECT * FROM listing_info WHERE project_id = ?'
+    ).bind(projectId).first()
+
+    // 辅助：格式化回款频率
+    const fmtFreq = (f: any) =>
+      ({ daily: '每日', weekly: '每周', biweekly: '每两周' }[f as string] ?? f ?? '-')
+
+    // 辅助：解析文件名（不含 base64）
+    const fmtFile = (raw: any) => {
+      if (!raw || raw === 'null') return '-'
+      try {
+        const info = typeof raw === 'string' ? JSON.parse(raw) : raw
+        return info?.file_name ?? '-'
+      } catch { return '-' }
+    }
+
+    const pct = (v: any) =>
+      v != null ? `${(parseFloat(v) * 100).toFixed(2)}%` : '-'
+    const money = (v: any) =>
+      v != null ? `¥${parseFloat(v).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}` : '-'
+    const dash = (v: any) => (v != null && v !== '' ? String(v) : '-')
+
+    const fields: Record<string, string> = {
+      // ── 一、项目基础信息 ──
+      '项目编号': dash(project.submission_code),
+      '提交时间': dash(project.created_at),
+
+      // ── 二、甲方（资金方）信息 ──
+      '甲方公司名称': dash(project.company_name_a),
+      '甲方统一社会信用代码': dash(project.credit_code_a),
+      '甲方注册地址': dash(project.address_a),
+
+      // ── 三、乙方（融资方/商家）信息 ──
+      '乙方公司名称': dash(project.company_name_b),
+      '乙方统一社会信用代码': dash(project.credit_code_b),
+      '乙方注册地址': dash(project.address_b),
+      '乙方联系人': dash(project.contact_name),
+      '乙方联系电话': dash(project.contact_phone),
+      '乙方联系邮箱': dash(project.contact_email),
+
+      // ── 四、联营资金方案 ──
+      '联营资金总额': money(project.investment_amount ?? project.total_amount),
+      '出资批次': dash(project.batch_count),
+      '首批出资金额': money(project.first_amount),
+      '后续批次金额': money(project.subsequent_amount),
+      '分成比例': pct(project.profit_share_ratio ?? project.profit_share),
+      '回款频率': fmtFreq(project.payment_frequency ?? project.repayment_frequency),
+      '每日回款金额': money(project.daily_repayment),
+      '预计联营天数': project.estimated_days != null ? `${project.estimated_days}天` : '-',
+      '年化收益率': pct(project.annual_rate),
+      '总支付金额': money(project.total_return_amount),
+      '目标ROI': dash(project.roi_target),
+      'ROI回收周期（天）': dash(project.roi_recovery_days),
+      'ROI维持周期（天）': dash(project.roi_maintain_days),
+
+      // ── 五、挂牌主体工商信息 ──
+      '挂牌主体企业中文名称': dash(listing?.company_name),
+      '挂牌主体注册编号': dash(listing?.registration_number),
+      '挂牌主体注册地址': dash(listing?.registered_address),
+      '企业成立日期': dash(listing?.establishment_date),
+      '主题业态': dash(listing?.business_format),
+      '主营业务简介': dash(listing?.business_intro),
+      '经营范围': dash(listing?.business_scope),
+
+      // ── 六、法定代表人 ──
+      '法定代表人姓名': dash(listing?.legal_rep_name),
+      '法定代表人证件类型': dash(listing?.legal_rep_id_type),
+      '法定代表人证件号码': dash(listing?.legal_rep_id_number),
+      '法定代表人居住地址': dash(listing?.legal_rep_address),
+      '法定代表人电邮': dash(listing?.legal_rep_email),
+      '法定代表人电话': dash(listing?.legal_rep_phone),
+
+      // ── 七、实际控制人 ──
+      '实控人姓名': dash(listing?.actual_controller_name),
+      '实控人证件类型': dash(listing?.actual_controller_id_type),
+      '实控人证件号码': dash(listing?.actual_controller_id_number),
+      '实控人居住地址': dash(listing?.actual_controller_address),
+      '实控人电邮': dash(listing?.actual_controller_email),
+      '实控人电话': dash(listing?.actual_controller_phone),
+
+      // ── 八、实益拥有人 ──
+      '实益拥有人姓名': dash(listing?.beneficial_owner_name),
+      '实益拥有人证件类型': dash(listing?.beneficial_owner_id_type),
+      '实益拥有人证件号码': dash(listing?.beneficial_owner_id_number),
+      '实益拥有人居住地址': dash(listing?.beneficial_owner_address),
+      '实益拥有人电邮': dash(listing?.beneficial_owner_email),
+      '实益拥有人电话': dash(listing?.beneficial_owner_phone),
+
+      // ── 九、授权人 ──
+      '授权人姓名': dash(listing?.authorizer_name),
+      '授权人证件类型': dash(listing?.authorizer_id_type),
+      '授权人证件号码': dash(listing?.authorizer_id_number),
+      '授权人居住地址': dash(listing?.authorizer_address),
+      '授权人电邮': dash(listing?.authorizer_email),
+      '授权人电话': dash(listing?.authorizer_phone),
+
+      // ── 十、准入条件 ──
+      '存续时间≥12个月': dash(listing?.condition_1),
+      '存续时间备注': dash(listing?.condition_1_note),
+      '年营业额≥500万人民币': dash(listing?.condition_2),
+      '营业额备注': dash(listing?.condition_2_note),
+      '有可靠收入管控系统': dash(listing?.condition_3),
+      '整体营收状况良好': dash(listing?.condition_4),
+      '无重大法律合规风险': dash(listing?.condition_5),
+
+      // ── 十一、预计营收（万元）──
+      '2026年预计营业总收入': dash(listing?.revenue_2026),
+      '2027年预计营业总收入': dash(listing?.revenue_2027),
+      '2028年预计营业总收入': dash(listing?.revenue_2028),
+      '2029年预计营业总收入': dash(listing?.revenue_2029),
+
+      // ── 十二、提交文件清单（仅文件名）──
+      '[文件]企业注册证书+公章': fmtFile(listing?.file_company_registration),
+      '[文件]法定代表人身份证件': fmtFile(listing?.file_legal_rep_id),
+      '[文件]法定代表人住址证明': fmtFile(listing?.file_legal_rep_address_proof),
+      '[文件]实控人身份证件': fmtFile(listing?.file_actual_controller_id),
+      '[文件]实控人住址证明': fmtFile(listing?.file_actual_controller_address_proof),
+      '[文件]实控人证明文件+公章': fmtFile(listing?.file_actual_controller_proof),
+      '[文件]实益拥有人身份证件': fmtFile(listing?.file_beneficial_owner_id),
+      '[文件]实益拥有人住址证明': fmtFile(listing?.file_beneficial_owner_address_proof),
+      '[文件]存续时间证明': fmtFile(listing?.file_condition_1_proof),
+      '[文件]营业额证明+公章': fmtFile(listing?.file_condition_2_proof),
+      '[文件]预估营业额信息+公章': fmtFile(listing?.file_revenue_forecast),
+      '[文件]董事会成员名册+公章': fmtFile(listing?.file_directors_list),
+      '[文件]董事会书面决议授权+公章': fmtFile(listing?.file_board_resolution),
+      '[文件]电邮申请说明+授权签名': fmtFile(listing?.file_email_authorization),
+
+      // ── 十三、联营协议签署信息 ──
+      '融资方住所': dash(listing?.company_address),
+      '融资方经营业务': dash(listing?.business_activity),
+      '融资方营销推广账户': dash(listing?.marketing_platform),
+      '融资方签署人姓名': dash(listing?.signer_name),
+      '融资方签署人职务': dash(listing?.signer_title),
+      '融资方联系人信息来源': dash(listing?.contact_source),
+      '融资方联系人微信号': dash(listing?.contact_wechat),
+      '对公账户-户名': dash(listing?.bank_account_name),
+      '对公账户-账号': dash(listing?.bank_account_number),
+      '对公账户-开户行': dash(listing?.bank_name),
+      '对公账户-开户支行': dash(listing?.bank_branch),
+
+      // ── 十四、销售收款账户（JSON格式）──
+      '销售收款账户列表': (() => {
+        if (!listing?.sales_accounts) return '-'
+        try {
+          const accs = typeof listing.sales_accounts === 'string'
+            ? JSON.parse(listing.sales_accounts) : listing.sales_accounts
+          if (!Array.isArray(accs) || accs.length === 0) return '-'
+          return accs.map((a: any, i: number) =>
+            `${i + 1}. ${a.platform || '-'} | ${a.account_info || '-'} | 已为滴灌通开通：${a.has_access || '否'}`
+          ).join('；')
+        } catch { return String(listing.sales_accounts) }
+      })(),
+
+      // ── 十五、营销推广账户（JSON格式）──
+      '营销推广账户列表': (() => {
+        if (!listing?.marketing_accounts) return '-'
+        try {
+          const accs = typeof listing.marketing_accounts === 'string'
+            ? JSON.parse(listing.marketing_accounts) : listing.marketing_accounts
+          if (!Array.isArray(accs) || accs.length === 0) return '-'
+          return accs.map((a: any, i: number) =>
+            `${i + 1}. ${a.name || '-'} | ID：${a.account_id || '-'}`
+          ).join('；')
+        } catch { return String(listing.marketing_accounts) }
+      })(),
+
+      // ── 十六、状态信息 ──
+      '挂牌信息是否已提交': listing?.is_submitted ? '是' : '否',
+      '挂牌信息提交时间': dash(listing?.submitted_at),
+    }
+
+    return c.json({
+      success: true,
+      data: fields,
+      filename: `协议字段_${project.submission_code}_${new Date().toISOString().split('T')[0]}.csv`
+    })
+
+  } catch (error: any) {
+    console.error('导出协议字段失败:', error)
+    return c.json({ success: false, error: error.message }, 500)
+  }
+})
 app.get('/projects/:id/listing-files', async (c) => {
   try {
     const projectId = c.req.param('id')
